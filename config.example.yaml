@@ -1,0 +1,8 @@
+hamrss:
+  feeds:
+  - prefix: /qth
+    driver: hamrss.driver.qth.QTHDriver
+# - prefix: /eham
+#   driver: hamrss.driver.eham.EHAMDriver
+# - prefix: /qrz
+#   driver: hamrss.driver.qrz.QRZDriver

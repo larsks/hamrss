@@ -1,0 +1,8 @@
+bs4
+requests
+lxml
+git+https://github.com/larsks/python-feedgen@fix-link-bug
+requests-cache
+flask
+gunicorn
+pydantic
