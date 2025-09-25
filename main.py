@@ -1,4 +1,4 @@
-from playwright.sync_api import sync_playwright
+from playwright.sync_api import sync_playwright, Page, Playwright
 import re
 import json
 import time
@@ -8,133 +8,134 @@ from pydantic import BaseModel
 class Product(BaseModel):
     manufacturer: str | None = None
     model: str | None = None
-    url: str
+    url: str | None = None
     product_id: str | None = None
-    description: str
+    description: str | None = None
     location: str | None = None
     date_added: str | None = None
-    price: str
+    price: str | None = None
     image_url: str | None = None
 
 
-def extract_products_from_page(page) -> list[Product]:
-    """Extract product information from the current page."""
-    products = []
+class HROCatalog:
+    """Ham Radio Outlet catalog scraper for used, open item, and consignment products."""
 
-    # Wait for products to load
-    page.wait_for_selector(".hero-feature", timeout=10000)
+    def __init__(self, playwright: Playwright):
+        self.playwright = playwright
+        self.browser = playwright.chromium.connect("ws://127.0.0.1:3000/")
 
-    # Get all product containers
-    product_containers = page.query_selector_all(".hero-feature")
+    def _extract_products_from_page(self, page: Page) -> list[Product]:
+        """Extract product information from the current page."""
+        products = []
 
-    for container in product_containers:
+        # Wait for products to load
+        page.wait_for_selector(".hero-feature", timeout=10000)
+
+        # Get all product containers
+        product_containers = page.query_selector_all(".hero-feature")
+
+        for container in product_containers:
+            try:
+                product_data = {}
+
+                # Extract manufacturer and model from the h4 elements
+                h4_elements = container.query_selector_all(".prod-caption h4")
+                if len(h4_elements) >= 2:
+                    manufacturer_elem = h4_elements[0].query_selector("strong")
+                    if manufacturer_elem:
+                        product_data["manufacturer"] = (
+                            manufacturer_elem.inner_text().strip()
+                        )
+
+                    model_elem = h4_elements[1]
+                    if model_elem:
+                        product_data["model"] = model_elem.inner_text().strip()
+
+                # Extract product URL from the first link
+                link_elem = container.query_selector(".prod-caption a")
+                if link_elem:
+                    product_data["url"] = link_elem.get_attribute("href")
+                    # Extract product ID from URL
+                    href = product_data["url"]
+                    if "pid=" in href:
+                        product_data["product_id"] = href.split("pid=")[1]
+
+                # Extract description from h6 element
+                desc_elem = container.query_selector(".prod-caption h6")
+                if desc_elem:
+                    product_data["description"] = desc_elem.inner_text().strip()
+
+                # Extract location
+                location_elem = container.query_selector(
+                    '.prod-caption h6 a[href*="locations.cfm"]'
+                )
+                if location_elem:
+                    location_text = location_elem.inner_text().strip()
+                    if "Located:" in location_text:
+                        product_data["location"] = location_text.replace(
+                            "Located:", ""
+                        ).strip()
+
+                # Extract date added
+                p_elements = container.query_selector_all(".prod-caption p")
+                for p in p_elements:
+                    text = p.inner_text().strip()
+                    if "Added:" in text:
+                        product_data["date_added"] = text.replace("Added:", "").strip()
+
+                # Extract price from the button with price
+                price_elem = container.query_selector(
+                    '.btn-primary[style*="background-color:#FFF"]'
+                )
+                if price_elem:
+                    product_data["price"] = price_elem.inner_text().strip()
+
+                # Extract image URL
+                img_elem = container.query_selector("img")
+                if img_elem:
+                    product_data["image_url"] = img_elem.get_attribute("src")
+
+                if product_data:  # Only add if we extracted some data
+                    product = Product(**product_data)
+                    products.append(product)
+
+            except Exception as e:
+                print(f"Error extracting product: {e}")
+                continue
+
+        return products
+
+    def _get_total_pages(self, page: Page) -> int:
+        """Extract the total number of pages from the pagination text."""
         try:
-            product_data = {}
-
-            # Extract manufacturer and model from the h4 elements
-            h4_elements = container.query_selector_all(".prod-caption h4")
-            if len(h4_elements) >= 2:
-                manufacturer_elem = h4_elements[0].query_selector("strong")
-                if manufacturer_elem:
-                    product_data["manufacturer"] = (
-                        manufacturer_elem.inner_text().strip()
-                    )
-
-                model_elem = h4_elements[1]
-                if model_elem:
-                    product_data["model"] = model_elem.inner_text().strip()
-
-            # Extract product URL from the first link
-            link_elem = container.query_selector(".prod-caption a")
-            if link_elem:
-                product_data["url"] = link_elem.get_attribute("href")
-                # Extract product ID from URL
-                href = product_data["url"]
-                if "pid=" in href:
-                    product_data["product_id"] = href.split("pid=")[1]
-
-            # Extract description from h6 element
-            desc_elem = container.query_selector(".prod-caption h6")
-            if desc_elem:
-                product_data["description"] = desc_elem.inner_text().strip()
-
-            # Extract location
-            location_elem = container.query_selector(
-                '.prod-caption h6 a[href*="locations.cfm"]'
-            )
-            if location_elem:
-                location_text = location_elem.inner_text().strip()
-                if "Located:" in location_text:
-                    product_data["location"] = location_text.replace(
-                        "Located:", ""
-                    ).strip()
-
-            # Extract date added
-            p_elements = container.query_selector_all(".prod-caption p")
-            for p in p_elements:
-                text = p.inner_text().strip()
-                if "Added:" in text:
-                    product_data["date_added"] = text.replace("Added:", "").strip()
-
-            # Extract price from the button with price
-            price_elem = container.query_selector(
-                '.btn-primary[style*="background-color:#FFF"]'
-            )
-            if price_elem:
-                product_data["price"] = price_elem.inner_text().strip()
-
-            # Extract image URL
-            img_elem = container.query_selector("img")
-            if img_elem:
-                product_data["image_url"] = img_elem.get_attribute("src")
-
-            if product_data:  # Only add if we extracted some data
-                product = Product(**product_data)
-                products.append(product)
-
+            # Look for text like "of 6" after the select element
+            page_info = page.query_selector('select[name="jumpPage"] + span')
+            if page_info:
+                text = page_info.inner_text().strip()
+                # Extract number from text like " of 6"
+                match = re.search(r"of (\d+)", text)
+                if match:
+                    return int(match.group(1))
         except Exception as e:
-            print(f"Error extracting product: {e}")
-            continue
+            print(f"Error getting total pages: {e}")
 
-    return products
+        return 1
 
-
-def get_total_pages(page) -> int:
-    """Extract the total number of pages from the pagination text."""
-    try:
-        # Look for text like "of 6" after the select element
-        page_info = page.query_selector('select[name="jumpPage"] + span')
-        if page_info:
-            text = page_info.inner_text().strip()
-            # Extract number from text like " of 6"
-            match = re.search(r"of (\d+)", text)
-            if match:
-                return int(match.group(1))
-    except Exception as e:
-        print(f"Error getting total pages: {e}")
-
-    return 1
-
-
-def scrape_hamradio_used_equipment() -> list[Product]:
-    """Main scraper function to fetch all pages of used equipment."""
-    all_products: list[Product] = []
-
-    with sync_playwright() as p:
-        # Connect to the existing Playwright server
-        browser = p.chromium.connect("ws://127.0.0.1:3000/")
-        page = browser.new_page()
+    def _scrape_catalog(self, url: str, catalog_name: str) -> list[Product]:
+        """Generic method to scrape any HRO catalog with pagination."""
+        all_products: list[Product] = []
+        page = self.browser.new_page()
 
         try:
-            # Navigate to the used equipment page
-            print("Navigating to Ham Radio used equipment page...")
-            page.goto("https://www.hamradio.com/used.cfm")
+            # Navigate to the catalog page
+            print(f"Navigating to {catalog_name}...")
+            page.goto(url)
 
             # Wait for the page to load
             page.wait_for_selector('select[name="jumpPage"]', timeout=10000)
 
             # Get total number of pages
-            total_pages = get_total_pages(page)
+            total_pages = self._get_total_pages(page)
             print(f"Found {total_pages} pages to scrape")
 
             # Scrape each page
@@ -142,7 +143,7 @@ def scrape_hamradio_used_equipment() -> list[Product]:
                 print(f"Scraping page {page_num + 1} of {total_pages}...")
 
                 # Extract products from current page
-                products = extract_products_from_page(page)
+                products = self._extract_products_from_page(page)
                 all_products.extend(products)
                 print(f"Found {len(products)} products on page {page_num + 1}")
 
@@ -169,23 +170,46 @@ def scrape_hamradio_used_equipment() -> list[Product]:
 
             print(f"Scraping completed! Total products found: {len(all_products)}")
 
-            # Save results to JSON file
-            with open("hamradio_used_equipment.json", "w") as f:
-                json.dump(
-                    [product.model_dump() for product in all_products], f, indent=2
-                )
-
-            print("Results saved to hamradio_used_equipment.json")
-
         except Exception as e:
             print(f"Error during scraping: {e}")
 
         finally:
             page.close()
 
-    return all_products
+        return all_products
+
+    def get_used_items(self) -> list[Product]:
+        """Fetch all used equipment from /used.cfm"""
+        return self._scrape_catalog("https://www.hamradio.com/used.cfm", "Ham Radio used equipment")
+
+    def get_open_items(self) -> list[Product]:
+        """Fetch all open items from /open_item.cfm"""
+        return self._scrape_catalog("https://www.hamradio.com/open_item.cfm", "Ham Radio open items")
+
+    def get_consignment_items(self) -> list[Product]:
+        """Fetch all consignment items from /consignment.cfm"""
+        return self._scrape_catalog("https://www.hamradio.com/consignment.cfm", "Ham Radio consignment items")
+
+
+def main():
+    """Example usage of HROCatalog class."""
+    with sync_playwright() as p:
+        catalog = HROCatalog(p)
+
+        # Get used items
+        used_products = catalog.get_used_items()
+
+        # Save results to JSON file
+        with open("hamradio_used_equipment.json", "w") as f:
+            json.dump([product.model_dump() for product in used_products], f, indent=2)
+
+        print(f"Results saved to hamradio_used_equipment.json")
+        print(f"Successfully scraped {len(used_products)} used products")
+
+        # Example of how to use the other methods:
+        # open_products = catalog.get_open_items()
+        # consignment_products = catalog.get_consignment_items()
 
 
 if __name__ == "__main__":
-    products = scrape_hamradio_used_equipment()
-    print(f"Successfully scraped {len(products)} products")
+    main()
