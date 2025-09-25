@@ -2,7 +2,17 @@ from playwright.sync_api import sync_playwright, Page, Playwright
 import re
 import json
 import time
+import sys
 from pydantic import BaseModel
+from enum import Enum
+import typer
+
+
+class Category(str, Enum):
+    """Available product categories."""
+    used = "used"
+    open = "open"
+    consignment = "consignment"
 
 
 class Product(BaseModel):
@@ -83,12 +93,19 @@ class HROCatalog:
                     if "Added:" in text:
                         product_data["date_added"] = text.replace("Added:", "").strip()
 
-                # Extract price from the button with price
-                price_elem = container.query_selector(
-                    '.btn-primary[style*="background-color:#FFF"]'
-                )
+                # Extract price from the button with price (try multiple selectors for different page types)
+                price_elem = container.query_selector('.btn-primary[style*="background-color:#FFF"]')
+                if not price_elem:
+                    # Try open items page format (orange background)
+                    price_elem = container.query_selector('.btn-primary[style*="background-color:#FF9900"]')
+                if not price_elem:
+                    # Try other possible price button formats
+                    price_elem = container.query_selector('.btn-group .btn-primary:first-child')
                 if price_elem:
-                    product_data["price"] = price_elem.inner_text().strip()
+                    price_text = price_elem.inner_text().strip()
+                    # Only set price if it looks like a price (starts with $)
+                    if price_text.startswith('$'):
+                        product_data["price"] = price_text
 
                 # Extract image URL
                 img_elem = container.query_selector("img")
@@ -191,25 +208,53 @@ class HROCatalog:
         return self._scrape_catalog("https://www.hamradio.com/consignment.cfm", "Ham Radio consignment items")
 
 
-def main():
-    """Example usage of HROCatalog class."""
+app = typer.Typer(help="Ham Radio Outlet catalog scraper")
+
+
+@app.command()
+def main(
+    category: Category = typer.Option(
+        Category.used,
+        "--category",
+        "-c",
+        help="Category of products to scrape (used, open, consignment)"
+    ),
+    output: str | None = typer.Option(
+        None,
+        "--output",
+        "-o",
+        help="Output file path. If not specified, prints to stdout."
+    )
+):
+    """Scrape Ham Radio Outlet catalog and output product data as JSON."""
+
     with sync_playwright() as p:
         catalog = HROCatalog(p)
 
-        # Get used items
-        used_products = catalog.get_used_items()
+        # Get products based on category
+        if category == Category.used:
+            products = catalog.get_used_items()
+        elif category == Category.open:
+            products = catalog.get_open_items()
+        elif category == Category.consignment:
+            products = catalog.get_consignment_items()
+        else:
+            typer.echo(f"Error: Unknown category '{category}'", err=True)
+            raise typer.Exit(1)
 
-        # Save results to JSON file
-        with open("hamradio_used_equipment.json", "w") as f:
-            json.dump([product.model_dump() for product in used_products], f, indent=2)
+        # Convert products to JSON
+        json_data = json.dumps([product.model_dump() for product in products], indent=2)
 
-        print(f"Results saved to hamradio_used_equipment.json")
-        print(f"Successfully scraped {len(used_products)} used products")
+        # Output to file or stdout
+        if output:
+            with open(output, "w") as f:
+                f.write(json_data)
+            typer.echo(f"Results saved to {output}", err=True)
+        else:
+            typer.echo(json_data)
 
-        # Example of how to use the other methods:
-        # open_products = catalog.get_open_items()
-        # consignment_products = catalog.get_consignment_items()
+        typer.echo(f"Successfully scraped {len(products)} {category.value} products", err=True)
 
 
 if __name__ == "__main__":
-    main()
+    app()
