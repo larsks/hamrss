@@ -1,22 +1,42 @@
-"""CLI interface for Ham Radio Outlet catalog scraper."""
+"""CLI interface for Ham Radio catalog scraper."""
 
 from playwright.sync_api import sync_playwright
 import json
 import typer
+import importlib
 
-from hamrss.drivers.hrocatalog import HROCatalog, Category
 from hamrss import PlaywrightServer
+from hamrss import protocol
+
+from typing import cast
 
 app = typer.Typer(help="Ham Radio Outlet catalog scraper")
 
 
+def load_driver(driver_name: str) -> protocol.Catalog:
+    """Load a catalog driver module and return its Catalog class."""
+    try:
+        module = importlib.import_module(driver_name)
+        assert isinstance(module.Catalog, protocol.Catalog)
+        return module.Catalog
+    except ImportError as e:
+        typer.echo(f"Error: Could not load driver '{driver_name}': {e}", err=True)
+        raise typer.Exit(1)
+
+
 @app.command()
 def main(
-    category: Category = typer.Option(
-        Category.used,
+    driver: str = typer.Option(
+        "hamrss.driver.hro",
+        "--driver",
+        "-d",
+        help="Catalog driver to use (e.g., hro for Ham Radio Outlet)",
+    ),
+    category: str | None = typer.Option(
+        None,
         "--category",
         "-c",
-        help="Category of products to scrape (used, open, consignment)",
+        help="Category of products to scrape. If not specified, shows available categories.",
     ),
     output: str | None = typer.Option(
         None,
@@ -25,23 +45,40 @@ def main(
         help="Output file path. If not specified, prints to stdout.",
     ),
 ):
-    """Scrape Ham Radio Outlet catalog and output product data as JSON."""
+    """Scrape catalog and output product data as JSON."""
+
+    # Load the specified driver
+    CatalogClass = load_driver(driver)
 
     with PlaywrightServer() as server:
         with sync_playwright() as p:
             browser = p.chromium.connect(server.get_ws_url())
-            catalog = HROCatalog(browser)
+            catalog = CatalogClass(browser)
 
-            # Get products based on category
-            if category == Category.used:
-                products = catalog.get_used_items()
-            elif category == Category.open:
-                products = catalog.get_open_items()
-            elif category == Category.consignment:
-                products = catalog.get_consignment_items()
-            else:
-                typer.echo(f"Error: Unknown category '{category}'", err=True)
+            # Get available categories
+            available_categories = catalog.get_categories()
+
+            # If no category specified, show available categories
+            if category is None:
+                typer.echo(f"Available categories for driver '{driver}':")
+                for cat in available_categories:
+                    typer.echo(f"  - {cat}")
+                typer.echo("\nUse --category (-c) to specify a category to scrape.")
+                return
+
+            # Validate category
+            if category not in available_categories:
+                typer.echo(
+                    f"Error: Unknown category '{category}' for driver '{driver}'",
+                    err=True,
+                )
+                typer.echo(
+                    f"Available categories: {', '.join(available_categories)}", err=True
+                )
                 raise typer.Exit(1)
+
+            # Get products from specified category
+            products = catalog.get_items(category)
 
             # Convert products to JSON
             json_data = json.dumps(
@@ -57,7 +94,7 @@ def main(
                 typer.echo(json_data)
 
             typer.echo(
-                f"Successfully scraped {len(products)} {category.value} products",
+                f"Successfully scraped {len(products)} {category} products using driver '{driver}'",
                 err=True,
             )
 

@@ -3,8 +3,9 @@
 from playwright.sync_api import Page, Browser
 import re
 import time
-from pydantic import BaseModel
 from enum import Enum
+
+from ..model import Product
 
 
 class Category(str, Enum):
@@ -15,19 +16,7 @@ class Category(str, Enum):
     consignment = "consignment"
 
 
-class Product(BaseModel):
-    manufacturer: str | None = None
-    model: str | None = None
-    url: str | None = None
-    product_id: str | None = None
-    description: str | None = None
-    location: str | None = None
-    date_added: str | None = None
-    price: str | None = None
-    image_url: str | None = None
-
-
-class HROCatalog:
+class Catalog:
     """Ham Radio Outlet catalog scraper for used, open item, and consignment products."""
 
     def __init__(self, browser: Browser):
@@ -63,10 +52,15 @@ class HROCatalog:
                 # Extract product URL from the first link
                 link_elem = container.query_selector(".prod-caption a")
                 if link_elem:
-                    product_data["url"] = link_elem.get_attribute("href")
+                    href = link_elem.get_attribute("href")
+                    # Convert relative URL to fully qualified URL
+                    if href and not href.startswith("http"):
+                        product_data["url"] = f"https://www.hamradio.com/{href}"
+                    else:
+                        product_data["url"] = href
+
                     # Extract product ID from URL
-                    href = product_data["url"]
-                    if "pid=" in href:
+                    if href and "pid=" in href:
                         product_data["product_id"] = href.split("pid=")[1]
 
                 # Extract description from h6 element
@@ -115,7 +109,12 @@ class HROCatalog:
                 # Extract image URL
                 img_elem = container.query_selector("img")
                 if img_elem:
-                    product_data["image_url"] = img_elem.get_attribute("src")
+                    src = img_elem.get_attribute("src")
+                    # Convert relative image URL to fully qualified URL
+                    if src and not src.startswith("http"):
+                        product_data["image_url"] = f"https://www.hamradio.com/{src}"
+                    else:
+                        product_data["image_url"] = src
 
                 if product_data:  # Only add if we extracted some data
                     product = Product(**product_data)
@@ -218,3 +217,15 @@ class HROCatalog:
             "https://www.hamradio.com/consignment.cfm", "Ham Radio consignment items"
         )
 
+    def get_categories(self):
+        return [x.value for x in Category]
+
+    def get_items(self, category_name: str) -> list[Product]:
+        if category_name == Category.used:
+            return self.get_used_items()
+        elif category_name == Category.open:
+            return self.get_open_items()
+        elif category_name == Category.consignment:
+            return self.get_consignment_items()
+        else:
+            raise ValueError(category_name)
