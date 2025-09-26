@@ -1,0 +1,7 @@
+.claude
+*.egg-info
+.env*
+.github/
+manifests/
+**/__pycache__/
+.venv/
