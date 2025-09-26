@@ -5,8 +5,8 @@ import json
 import typer
 import importlib
 
-from hamrss import PlaywrightServer
-from hamrss import protocol
+from . import PlaywrightServer
+from . import protocol
 
 from typing import cast
 
@@ -79,18 +79,14 @@ def main(
             f"Error: Unknown category '{category}' for driver '{driver}'",
             err=True,
         )
-        typer.echo(
-            f"Available categories: {', '.join(available_categories)}", err=True
-        )
+        typer.echo(f"Available categories: {', '.join(available_categories)}", err=True)
         raise typer.Exit(1)
 
     # Get products from specified category
     products = catalog.get_items(category)
 
     # Convert products to JSON
-    json_data = json.dumps(
-        [product.model_dump() for product in products], indent=2
-    )
+    json_data = json.dumps([product.model_dump() for product in products], indent=2)
 
     # Output to file or stdout
     if output:
@@ -104,7 +100,3 @@ def main(
         f"Successfully scraped {len(products)} {category} products using driver '{driver}'",
         err=True,
     )
-
-
-if __name__ == "__main__":
-    app()

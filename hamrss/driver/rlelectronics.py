@@ -106,6 +106,10 @@ class Catalog:
         else:
             raise ValueError(f"Unknown category: {category}")
 
+    def requires_playwright(self) -> bool:
+        """R&L Electronics uses requests and doesn't require Playwright."""
+        return False
+
     def get_used_items(self) -> list[Product]:
         """Fetch all used equipment from R&L Electronics."""
         try:
