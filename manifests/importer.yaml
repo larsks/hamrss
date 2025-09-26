@@ -1,0 +1,31 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: hamrss-importer
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      component: hamrss-importer
+  template:
+    metadata:
+      labels:
+        component: hamrss-importer
+    spec:
+      containers:
+        - name: hamrss-importer
+          image: hamrss:latest
+          imagePullPolicy: Always
+          command: ["uv", "run", "--no-sync", "--no-cache", "hamrss-importer"]
+          envFrom:
+            - configMapRef:
+                name: hamrss-config
+            - secretRef:
+                name: hamrss-secrets
+          resources:
+            requests:
+              memory: "256Mi"
+              cpu: "100m"
+            limits:
+              memory: "512Mi"
+              cpu: "500m"

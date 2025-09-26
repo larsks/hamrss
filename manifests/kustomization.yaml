@@ -1,0 +1,29 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+namespace: hamrss
+
+labels:
+  - includeSelectors: true
+    pairs:
+      app: hamrss
+
+resources:
+  - playwright.yaml
+  - postgres.yaml
+  - importer.yaml
+  - publisher.yaml
+
+configMapGenerator:
+  - name: hamrss-config
+    envs:
+      - config/hamrss-config.env
+
+secretGenerator:
+  - name: hamrss-secrets
+    envs:
+      - config/hamrss-secrets.env
+
+images:
+  - name: hamrss
+    newName: ghcr.io/larsks/hamrss
+    newTag: main
