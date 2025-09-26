@@ -19,8 +19,8 @@ class Category(str, Enum):
 class Catalog:
     """Ham Radio Outlet catalog scraper for used, open item, and consignment products."""
 
-    def __init__(self, browser: Browser):
-        self.browser = browser
+    def __init__(self, playwright_server):
+        self.playwright_server = playwright_server
 
     def _extract_products_from_page(self, page: Page) -> list[Product]:
         """Extract product information from the current page."""
@@ -145,57 +145,58 @@ class Catalog:
     def _scrape_catalog(self, url: str, catalog_name: str) -> list[Product]:
         """Generic method to scrape any HRO catalog with pagination."""
         all_products: list[Product] = []
-        page = self.browser.new_page()
 
-        try:
-            # Navigate to the catalog page
-            print(f"Navigating to {catalog_name}...")
-            page.goto(url)
+        with self.playwright_server.get_browser() as browser:
+            page = browser.new_page()
+            try:
+                # Navigate to the catalog page
+                print(f"Navigating to {catalog_name}...")
+                page.goto(url)
 
-            # Wait for the page to load
-            page.wait_for_selector('select[name="jumpPage"]', timeout=10000)
+                # Wait for the page to load
+                page.wait_for_selector('select[name="jumpPage"]', timeout=10000)
 
-            # Get total number of pages
-            total_pages = self._get_total_pages(page)
-            print(f"Found {total_pages} pages to scrape")
+                # Get total number of pages
+                total_pages = self._get_total_pages(page)
+                print(f"Found {total_pages} pages to scrape")
 
-            # Scrape each page
-            for page_num in range(total_pages):
-                print(f"Scraping page {page_num + 1} of {total_pages}...")
+                # Scrape each page
+                for page_num in range(total_pages):
+                    print(f"Scraping page {page_num + 1} of {total_pages}...")
 
-                # Extract products from current page
-                products = self._extract_products_from_page(page)
-                all_products.extend(products)
-                print(f"Found {len(products)} products on page {page_num + 1}")
+                    # Extract products from current page
+                    products = self._extract_products_from_page(page)
+                    all_products.extend(products)
+                    print(f"Found {len(products)} products on page {page_num + 1}")
 
-                # Navigate to next page if not the last page
-                if page_num < total_pages - 1:
-                    try:
-                        # Find the select element and get the next page value
-                        select_elem = page.query_selector('select[name="jumpPage"]')
-                        options = select_elem.query_selector_all("option")
+                    # Navigate to next page if not the last page
+                    if page_num < total_pages - 1:
+                        try:
+                            # Find the select element and get the next page value
+                            select_elem = page.query_selector('select[name="jumpPage"]')
+                            options = select_elem.query_selector_all("option")
 
-                        # Get the value for the next page
-                        next_page_value = options[page_num + 1].get_attribute("value")
+                            # Get the value for the next page
+                            next_page_value = options[page_num + 1].get_attribute("value")
 
-                        # Select the next page
-                        page.select_option('select[name="jumpPage"]', next_page_value)
+                            # Select the next page
+                            page.select_option('select[name="jumpPage"]', next_page_value)
 
-                        # Wait for the page to update
-                        time.sleep(2)
-                        page.wait_for_selector(".hero-feature", timeout=10000)
+                            # Wait for the page to update
+                            time.sleep(2)
+                            page.wait_for_selector(".hero-feature", timeout=10000)
 
-                    except Exception as e:
-                        print(f"Error navigating to page {page_num + 2}: {e}")
-                        break
+                        except Exception as e:
+                            print(f"Error navigating to page {page_num + 2}: {e}")
+                            break
 
-            print(f"Scraping completed! Total products found: {len(all_products)}")
+                print(f"Scraping completed! Total products found: {len(all_products)}")
 
-        except Exception as e:
-            print(f"Error during scraping: {e}")
+            except Exception as e:
+                print(f"Error during scraping: {e}")
 
-        finally:
-            page.close()
+            finally:
+                page.close()
 
         return all_products
 
@@ -219,6 +220,10 @@ class Catalog:
 
     def get_categories(self):
         return [x.value for x in Category]
+
+    def requires_playwright(self) -> bool:
+        """HRO requires Playwright for dynamic content."""
+        return True
 
     def get_items(self, category_name: str) -> list[Product]:
         if category_name == Category.used:

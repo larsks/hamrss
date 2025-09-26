@@ -17,8 +17,8 @@ class Category(str, Enum):
 class Catalog:
     """MTC Radio catalog scraper for used equipment."""
 
-    def __init__(self, browser=None):
-        # Ignore the browser parameter as we use requests instead
+    def __init__(self, playwright_server=None):
+        # Ignore the playwright_server parameter as we use requests instead
         pass
 
     def _extract_products_from_html(self, html_content: str) -> list[Product]:

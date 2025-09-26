@@ -44,59 +44,66 @@ def main(
         "-o",
         help="Output file path. If not specified, prints to stdout.",
     ),
+    playwright_server: str = typer.Option(
+        "ws://127.0.0.1:3000/",
+        "--playwright-server",
+        "-S",
+        help="WebSocket URL for the Playwright server.",
+    ),
 ):
     """Scrape catalog and output product data as JSON."""
 
     # Load the specified driver
     CatalogClass = load_driver(driver)
 
-    with PlaywrightServer() as server:
-        with sync_playwright() as p:
-            browser = p.chromium.connect(server.get_ws_url())
-            catalog = CatalogClass(browser)
+    # Create PlaywrightServer instance (will only connect when needed)
+    playwright_server_instance = PlaywrightServer(playwright_server)
 
-            # Get available categories
-            available_categories = catalog.get_categories()
+    # Create catalog instance with the playwright server
+    catalog = CatalogClass(playwright_server_instance)
 
-            # If no category specified, show available categories
-            if category is None:
-                typer.echo(f"Available categories for driver '{driver}':")
-                for cat in available_categories:
-                    typer.echo(f"  - {cat}")
-                typer.echo("\nUse --category (-c) to specify a category to scrape.")
-                return
+    # Get available categories
+    available_categories = catalog.get_categories()
 
-            # Validate category
-            if category not in available_categories:
-                typer.echo(
-                    f"Error: Unknown category '{category}' for driver '{driver}'",
-                    err=True,
-                )
-                typer.echo(
-                    f"Available categories: {', '.join(available_categories)}", err=True
-                )
-                raise typer.Exit(1)
+    # If no category specified, show available categories
+    if category is None:
+        typer.echo(f"Available categories for driver '{driver}':")
+        for cat in available_categories:
+            typer.echo(f"  - {cat}")
+        typer.echo("\nUse --category (-c) to specify a category to scrape.")
+        return
 
-            # Get products from specified category
-            products = catalog.get_items(category)
+    # Validate category
+    if category not in available_categories:
+        typer.echo(
+            f"Error: Unknown category '{category}' for driver '{driver}'",
+            err=True,
+        )
+        typer.echo(
+            f"Available categories: {', '.join(available_categories)}", err=True
+        )
+        raise typer.Exit(1)
 
-            # Convert products to JSON
-            json_data = json.dumps(
-                [product.model_dump() for product in products], indent=2
-            )
+    # Get products from specified category
+    products = catalog.get_items(category)
 
-            # Output to file or stdout
-            if output:
-                with open(output, "w") as f:
-                    f.write(json_data)
-                typer.echo(f"Results saved to {output}", err=True)
-            else:
-                typer.echo(json_data)
+    # Convert products to JSON
+    json_data = json.dumps(
+        [product.model_dump() for product in products], indent=2
+    )
 
-            typer.echo(
-                f"Successfully scraped {len(products)} {category} products using driver '{driver}'",
-                err=True,
-            )
+    # Output to file or stdout
+    if output:
+        with open(output, "w") as f:
+            f.write(json_data)
+        typer.echo(f"Results saved to {output}", err=True)
+    else:
+        typer.echo(json_data)
+
+    typer.echo(
+        f"Successfully scraped {len(products)} {category} products using driver '{driver}'",
+        err=True,
+    )
 
 
 if __name__ == "__main__":
