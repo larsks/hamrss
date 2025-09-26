@@ -2,8 +2,8 @@
 
 import logging
 import sys
-from contextlib import contextmanager
-from typing import Generator
+from contextlib import asynccontextmanager, contextmanager
+from typing import AsyncGenerator, Generator
 
 import uvicorn
 from fastapi import FastAPI, HTTPException, Depends
@@ -73,40 +73,40 @@ def _get_log_safe_url(url: str) -> str:
     return url
 
 
-# Create FastAPI app
-app = FastAPI(
-    title="Ham Radio RSS Publisher",
-    description="RSS feeds for ham radio equipment catalogs",
-    version="1.0.0",
-)
-
-# Dependency to get settings
-def get_current_settings() -> PublisherSettings:
-    return get_settings()
-
-
-@app.on_event("startup")
-async def startup_event():
-    """Initialize the application."""
+@asynccontextmanager
+async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
+    """Manage application lifespan events."""
+    # Startup
     settings = get_settings()
     setup_database(settings)
     logger.info("RSS Publisher started")
 
+    yield
 
-@app.on_event("shutdown")
-async def shutdown_event():
-    """Clean up resources."""
+    # Shutdown
     global engine
     if engine:
         engine.dispose()
     logger.info("RSS Publisher stopped")
 
 
+# Create FastAPI app
+app = FastAPI(
+    title="Ham Radio RSS Publisher",
+    description="RSS feeds for ham radio equipment catalogs",
+    version="1.0.0",
+    lifespan=lifespan,
+)
+
+
+# Dependency to get settings
+def get_current_settings() -> PublisherSettings:
+    return get_settings()
+
+
 @app.get("/")
 async def root():
     """Root endpoint with service information."""
-    settings = get_current_settings()
-
     with get_db_session() as session:
         queries = FeedQueries(session)
         stats = queries.get_feed_stats()
@@ -118,13 +118,13 @@ async def root():
             "/feed": "All items RSS feed",
             "/feed/{driver}": "Driver-specific RSS feed",
             "/feed/{driver}/{category}": "Category-specific RSS feed",
-            "/stats": "Feed statistics"
+            "/stats": "Feed statistics",
         },
         "stats": stats,
         "available_feeds": {
             "drivers": list(stats["drivers"].keys()),
-            "categories": list(stats["categories"].keys())
-        }
+            "categories": list(stats["categories"].keys()),
+        },
     }
 
 
@@ -137,7 +137,9 @@ async def get_stats():
 
 
 @app.get("/feed")
-async def get_all_items_feed(settings: PublisherSettings = Depends(get_current_settings)):
+async def get_all_items_feed(
+    settings: PublisherSettings = Depends(get_current_settings),
+):
     """Get RSS feed of all items."""
     with get_db_session() as session:
         queries = FeedQueries(session)
@@ -152,14 +154,13 @@ async def get_all_items_feed(settings: PublisherSettings = Depends(get_current_s
         return Response(
             content=rss_content,
             media_type="application/rss+xml",
-            headers={"Content-Type": "application/rss+xml; charset=utf-8"}
+            headers={"Content-Type": "application/rss+xml; charset=utf-8"},
         )
 
 
 @app.get("/feed/{driver}")
 async def get_driver_feed(
-    driver: str,
-    settings: PublisherSettings = Depends(get_current_settings)
+    driver: str, settings: PublisherSettings = Depends(get_current_settings)
 ):
     """Get RSS feed for a specific driver."""
     with get_db_session() as session:
@@ -170,7 +171,7 @@ async def get_driver_feed(
             available_drivers = queries.get_available_drivers()
             raise HTTPException(
                 status_code=404,
-                detail=f"No products found for driver '{driver}'. Available drivers: {available_drivers}"
+                detail=f"No products found for driver '{driver}'. Available drivers: {available_drivers}",
             )
 
         generator = RSSFeedGenerator(settings)
@@ -179,7 +180,7 @@ async def get_driver_feed(
         return Response(
             content=rss_content,
             media_type="application/rss+xml",
-            headers={"Content-Type": "application/rss+xml; charset=utf-8"}
+            headers={"Content-Type": "application/rss+xml; charset=utf-8"},
         )
 
 
@@ -187,19 +188,21 @@ async def get_driver_feed(
 async def get_category_feed(
     driver: str,
     category: str,
-    settings: PublisherSettings = Depends(get_current_settings)
+    settings: PublisherSettings = Depends(get_current_settings),
 ):
     """Get RSS feed for a specific driver and category."""
     with get_db_session() as session:
         queries = FeedQueries(session)
-        products = queries.get_category_items(driver, category, limit=settings.max_items_per_feed)
+        products = queries.get_category_items(
+            driver, category, limit=settings.max_items_per_feed
+        )
 
         if not products:
             available_categories = queries.get_available_categories(driver)
             raise HTTPException(
                 status_code=404,
                 detail=f"No products found for driver '{driver}' and category '{category}'. "
-                       f"Available categories for {driver}: {available_categories}"
+                f"Available categories for {driver}: {available_categories}",
             )
 
         generator = RSSFeedGenerator(settings)
@@ -208,7 +211,7 @@ async def get_category_feed(
         return Response(
             content=rss_content,
             media_type="application/rss+xml",
-            headers={"Content-Type": "application/rss+xml; charset=utf-8"}
+            headers={"Content-Type": "application/rss+xml; charset=utf-8"},
         )
 
 
