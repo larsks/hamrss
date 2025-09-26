@@ -20,6 +20,9 @@ dependencies = [
   "feedgen>=1.0.0",
 ]
 
+[tool.setuptools]
+packages = ["hamrss"]
+
 [tool.uv]
 package = true
 
