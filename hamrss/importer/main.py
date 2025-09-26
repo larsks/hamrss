@@ -4,7 +4,7 @@ import logging
 import sys
 from typing import Optional
 
-from ..config import get_settings, ServerSettings
+from .config import get_settings, ServerSettings
 from ..database.connection import init_database, close_database
 from .scheduler import ScraperScheduler
 

@@ -1,0 +1,66 @@
+volumes:
+  hamrss-data:
+
+services:
+  postgres:
+    image: docker.io/postgres:18
+    volumes:
+      - "hamrss-data:/var/lib/postgresql"
+    environment:
+      POSTGRES_USER: hamrss
+      POSTGRES_PASSWORD: "${POSTGRES_PASSWORD}"
+      POSTGRES_DB: "${POSTGRES_DB}"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s # Optional: allow time for initial startup before checks begin
+
+  playwright:
+    image: mcr.microsoft.com/playwright:v1.54.0-noble
+    init: true
+    user: pwuser
+    working_dir: /home/pwuser
+    command:
+      [
+        "npx",
+        "-y",
+        "playwright@1.54.0",
+        "run-server",
+        "--port",
+        "3000",
+        "--host",
+        "0.0.0.0",
+      ]
+
+  importer:
+    build:
+      context: .
+      dockerfile: Containerfile
+    depends_on:
+      postgres:
+        condition: service_healthy
+      playwright:
+        condition: service_started
+    environment:
+      HAMRSS_IMPORTER_DATABASE_URL: "postgresql://hamrss:${POSTGRES_PASSWORD}@postgres/${POSTGRES_DB}"
+      HAMRSS_IMPORTER_SCRAPE_INTERVAL_HOURS: "${HAMRSS_IMPORTER_SCRAPE_INTERVAL_HOURS}"
+      HAMRSS_IMPORTER_ENABLED_DRIVERS: "${HAMRSS_IMPORTER_ENABLED_DRIVERS}"
+      HAMRSS_IMPORTER_PLAYWRIGHT_SERVER_URL: "ws://playwright:3000"
+    command: ["hamrss-importer"]
+
+  publisher:
+    build:
+      context: .
+      dockerfile: Containerfile
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      HAMRSS_PUBLISHER_DATABASE_URL: "postgresql://hamrss:${POSTGRES_PASSWORD}@postgres/${POSTGRES_DB}"
+      HAMRSS_PUBLISHER_HOST: "0.0.0.0"
+      HAMRSS_PUBLISHER_MAX_ITEMS_PER_FEED: "1000"
+    command: ["hamrss-publisher"]
+    ports:
+      - "9090:8080"

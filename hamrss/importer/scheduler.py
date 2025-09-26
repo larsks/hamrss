@@ -10,7 +10,7 @@ from typing import Optional
 from apscheduler.schedulers.blocking import BlockingScheduler
 from apscheduler.triggers.interval import IntervalTrigger
 
-from ..config import ServerSettings
+from .config import ServerSettings
 from ..database.connection import DatabaseManager
 from .scraper import ScrapeOrchestrator
 

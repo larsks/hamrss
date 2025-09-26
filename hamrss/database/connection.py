@@ -2,21 +2,28 @@
 
 import logging
 from contextlib import contextmanager
-from typing import Generator
+from typing import Generator, Protocol
 
 from sqlalchemy import event, create_engine, Engine, text
 from sqlalchemy.orm import sessionmaker, Session
 
-from ..config import ServerSettings
 from .models import Base
 
 logger = logging.getLogger(__name__)
 
 
+class DatabaseSettings(Protocol):
+    """Protocol for database settings."""
+    database_url: str
+    db_pool_size: int
+    db_pool_overflow: int
+    log_level: str
+
+
 class DatabaseManager:
     """Manages database connections and sessions."""
 
-    def __init__(self, settings: ServerSettings):
+    def __init__(self, settings: DatabaseSettings):
         self.settings = settings
         self.engine: Engine | None = None
         self.session_factory: sessionmaker[Session] | None = None
@@ -104,18 +111,17 @@ class DatabaseManager:
 _db_manager: DatabaseManager | None = None
 
 
-def get_database_manager(settings: ServerSettings | None = None) -> DatabaseManager:
+def get_database_manager(settings: DatabaseSettings | None = None) -> DatabaseManager:
     """Get the global database manager instance."""
     global _db_manager
     if _db_manager is None:
         if settings is None:
-            from ..config import get_settings
-            settings = get_settings()
+            raise RuntimeError("Database settings must be provided")
         _db_manager = DatabaseManager(settings)
     return _db_manager
 
 
-def init_database(settings: ServerSettings | None = None) -> DatabaseManager:
+def init_database(settings: DatabaseSettings) -> DatabaseManager:
     """Initialize the database and return the manager."""
     db_manager = get_database_manager(settings)
     db_manager.initialize()

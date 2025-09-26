@@ -8,8 +8,7 @@ class ServerSettings(BaseSettings):
     """Server configuration loaded from environment variables."""
 
     model_config = SettingsConfigDict(
-        env_prefix="HAMRSS_",
-        env_file=".env",
+        env_prefix="HAMRSS_IMPORTER_",
         env_file_encoding="utf-8",
         case_sensitive=False,
     )
@@ -35,7 +34,7 @@ class ServerSettings(BaseSettings):
 
     def get_enabled_drivers(self) -> list[str]:
         """Parse enabled drivers into a list."""
-        return [s.strip() for s in self.enabled_drivers.split(',') if s.strip()]
+        return [s.strip() for s in self.enabled_drivers.split(",") if s.strip()]
 
     # Playwright configuration
     playwright_server_url: str = Field(
@@ -88,4 +87,3 @@ class ServerSettings(BaseSettings):
 def get_settings() -> ServerSettings:
     """Get the application settings instance."""
     return ServerSettings()
-

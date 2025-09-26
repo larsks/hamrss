@@ -5,7 +5,7 @@ import logging
 import traceback
 from typing import List, Optional
 
-from ..config import ServerSettings
+from .config import ServerSettings
 from ..database.connection import DatabaseManager
 from ..playwright_server import PlaywrightServer
 from ..protocol import Catalog

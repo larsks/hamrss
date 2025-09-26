@@ -5,16 +5,19 @@ description = "Add your description here"
 readme = "README.md"
 requires-python = ">=3.13"
 dependencies = [
-    "playwright>=1.54,<1.55",
-    "pydantic>=2.11.9",
-    "typer>=0.9.0",
-    "requests>=2.32.0",
-    "beautifulsoup4>=4.12.0",
-    "pydantic-settings>=2.0.0",
-    "psycopg2-binary>=2.9.0",
-    "sqlalchemy>=2.0.0",
-    "alembic>=1.13.0",
-    "apscheduler>=3.10.0",
+  "playwright>=1.54,<1.55",
+  "pydantic>=2.11.9",
+  "typer>=0.9.0",
+  "requests>=2.32.0",
+  "beautifulsoup4>=4.12.0",
+  "pydantic-settings>=2.0.0",
+  "psycopg2-binary>=2.9.0",
+  "sqlalchemy>=2.0.0",
+  "alembic>=1.13.0",
+  "apscheduler>=3.10.0",
+  "fastapi>=0.104.0",
+  "uvicorn>=0.24.0",
+  "feedgen>=1.0.0",
 ]
 
 [tool.uv]
@@ -22,4 +25,5 @@ package = true
 
 [project.scripts]
 hamrss = "hamrss.main:app"
-hamrss-server = "hamrss.server.main:run_server"
+hamrss-importer = "hamrss.importer.main:run_server"
+hamrss-publisher = "hamrss.publisher.main:run_server"
