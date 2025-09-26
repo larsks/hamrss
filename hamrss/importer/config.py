@@ -15,7 +15,7 @@ class ServerSettings(BaseSettings):
 
     # Database configuration
     database_url: str = Field(
-        default="postgresql+psycopg://hamrss:hamrss@localhost/hamrss",
+        default="postgresql://hamrss:hamrss@localhost/hamrss",
         description="PostgreSQL database URL",
     )
 
