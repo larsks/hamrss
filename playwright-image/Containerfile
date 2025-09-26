@@ -1,0 +1,4 @@
+FROM mcr.microsoft.com/playwright:v1.54.0-noble
+RUN set -x; npm install -g playwright@1.54.0
+ENTRYPOINT ["playwright"]
+CMD ["run-server", "--port", "3000", "--host", "0.0.0.0"]
