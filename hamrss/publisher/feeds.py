@@ -116,47 +116,37 @@ class RSSFeedGenerator:
             fe.category(term=category)
 
     def _create_product_content(self, product: Product) -> str:
-        """Create HTML content for a product."""
-        rows = []
+        """Create plain-text content for a product."""
+        lines = []
 
-        # Helper function to add row if value exists
-        def add_row(label: str, value: str | None):
+        # Helper function to add line if value exists
+        def add_line(label: str, value: str | None):
             if value:
-                rows.append(
-                    f"<tr><td><strong>{label}:</strong></td><td>{value}</td></tr>"
-                )
+                lines.append(f"{label}: {value}")
 
-        add_row("Description", product.description)
-        add_row("Manufacturer", product.manufacturer)
-        add_row("Model", product.model)
-        add_row("Price", product.price)
-        add_row("Location", product.location)
-        add_row("Date Added", product.date_added)
-        add_row(
+        add_line("Description", product.description)
+        add_line("Manufacturer", product.manufacturer)
+        add_line("Model", product.model)
+        add_line("Price", product.price)
+        add_line("Location", product.location)
+        add_line("Date Added", product.date_added)
+        add_line(
             "Driver",
             product.driver_name.split(".")[-1]
             if product.driver_name and "." in product.driver_name
             else product.driver_name,
         )
-        add_row("Category", product.category)
+        add_line("Category", product.category)
 
         if product.first_seen:
-            add_row("First Seen", product.first_seen.strftime("%Y-%m-%d %H:%M:%S UTC"))
+            add_line("First Seen", product.first_seen.strftime("%Y-%m-%d %H:%M:%S UTC"))
         if product.last_seen:
-            add_row("Last Seen", product.last_seen.strftime("%Y-%m-%d %H:%M:%S UTC"))
+            add_line("Last Seen", product.last_seen.strftime("%Y-%m-%d %H:%M:%S UTC"))
 
         if product.url:
-            rows.append(
-                f'<tr><td><strong>Link:</strong></td><td><a href="{product.url}">View Item</a></td></tr>'
-            )
+            add_line("Link", product.url)
 
-        content = "<table border='1' cellpadding='5' cellspacing='0'>\n"
-        content += "\n".join(rows)
-        content += "\n</table>"
-
-        # Add image if available
-        if product.image_url:
-            content += f'<br><img src="{product.image_url}" alt="Product Image" style="max-width: 300px;">'
+        content = "<pre>" + "\n".join(lines) + "</pre>"
 
         return content
 
@@ -188,4 +178,3 @@ class RSSFeedGenerator:
             description=f"{category.title()} items from {driver.upper()} driver",
             feed_path=f"/feed/{driver}/{category}",
         )
-
