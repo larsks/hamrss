@@ -24,7 +24,7 @@ class Catalog:
     def _extract_products_from_html(self, html_content: str) -> list[Product]:
         """Extract product information from the HTML content."""
         products = []
-        soup = BeautifulSoup(html_content, 'html.parser')
+        soup = BeautifulSoup(html_content, "html.parser")
 
         # Find the main table with products
         table = soup.find("table", {"border": "1", "bordercolor": "#000000"})
@@ -72,7 +72,9 @@ class Catalog:
 
                     # Try to parse model from description
                     # Look for text after "Used " prefix
-                    desc_cleaned = re.sub(r'^Used\s+', '', desc_text, flags=re.IGNORECASE)
+                    desc_cleaned = re.sub(
+                        r"^Used\s+", "", desc_text, flags=re.IGNORECASE
+                    )
                     if desc_cleaned:
                         # Take first few words as potential model
                         model_parts = desc_cleaned.split()[:2]
@@ -106,15 +108,13 @@ class Catalog:
         else:
             raise ValueError(f"Unknown category: {category}")
 
-    def requires_playwright(self) -> bool:
-        """R&L Electronics uses requests and doesn't require Playwright."""
-        return False
-
     def get_used_items(self) -> list[Product]:
         """Fetch all used equipment from R&L Electronics."""
         try:
             print("Fetching R&L Electronics used equipment...")
-            response = requests.get("https://www2.randl.com/index.php?main_page=usedbrand")
+            response = requests.get(
+                "https://www2.randl.com/index.php?main_page=usedbrand"
+            )
             response.raise_for_status()
 
             # Extract products from the HTML content
@@ -126,3 +126,4 @@ class Catalog:
         except Exception as e:
             print(f"Error during scraping: {e}")
             return []
+

@@ -24,10 +24,10 @@ class Catalog:
     def _extract_products_from_html(self, html_content: str) -> list[Product]:
         """Extract product information from HTML content."""
         products = []
-        soup = BeautifulSoup(html_content, 'html.parser')
+        soup = BeautifulSoup(html_content, "html.parser")
 
         # Get the main product list (not sidebar lists)
-        main_product_list = soup.select_one('#CategoryContent .ProductList')
+        main_product_list = soup.select_one("#CategoryContent .ProductList")
         if not main_product_list:
             return products
 
@@ -56,8 +56,15 @@ class Catalog:
                     # Common patterns: "U17582 Used ACOM A1200S..." or "Certified Pre-Loved Flex 6600..."
                     if title:
                         # Remove used item number prefix if present
-                        title_cleaned = re.sub(r'^U\d+\s+Used\s+', '', title, flags=re.IGNORECASE)
-                        title_cleaned = re.sub(r'^Certified Pre-Loved\s+', '', title_cleaned, flags=re.IGNORECASE)
+                        title_cleaned = re.sub(
+                            r"^U\d+\s+Used\s+", "", title, flags=re.IGNORECASE
+                        )
+                        title_cleaned = re.sub(
+                            r"^Certified Pre-Loved\s+",
+                            "",
+                            title_cleaned,
+                            flags=re.IGNORECASE,
+                        )
 
                         # Split on first space to get potential manufacturer
                         parts = title_cleaned.split()
@@ -100,7 +107,7 @@ class Catalog:
     def _get_total_pages(self, html_content: str) -> int:
         """Extract the total number of pages from the pagination."""
         try:
-            soup = BeautifulSoup(html_content, 'html.parser')
+            soup = BeautifulSoup(html_content, "html.parser")
             # Look for pagination list
             paging_list = soup.select_one(".CategoryPagination .PagingList")
             if paging_list:
@@ -114,7 +121,7 @@ class Catalog:
                         href = link.get("href")
                         if href and "page=" in href:
                             # Extract page number from URL
-                            page_match = re.search(r'page=(\d+)', href)
+                            page_match = re.search(r"page=(\d+)", href)
                             if page_match:
                                 page_num = int(page_match.group(1))
                                 max_page = max(max_page, page_num)
@@ -177,10 +184,9 @@ class Catalog:
         else:
             raise ValueError(f"Unknown category: {category}")
 
-    def requires_playwright(self) -> bool:
-        """MTC Radio uses requests and doesn't require Playwright."""
-        return False
-
     def get_used_items(self) -> list[Product]:
         """Fetch all used equipment from MTC Radio."""
-        return self._scrape_catalog("https://www.mtcradio.com/used-gear/", "MTC Radio used equipment")
+        return self._scrape_catalog(
+            "https://www.mtcradio.com/used-gear/", "MTC Radio used equipment"
+        )
+

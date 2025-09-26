@@ -177,10 +177,14 @@ class Catalog:
                             options = select_elem.query_selector_all("option")
 
                             # Get the value for the next page
-                            next_page_value = options[page_num + 1].get_attribute("value")
+                            next_page_value = options[page_num + 1].get_attribute(
+                                "value"
+                            )
 
                             # Select the next page
-                            page.select_option('select[name="jumpPage"]', next_page_value)
+                            page.select_option(
+                                'select[name="jumpPage"]', next_page_value
+                            )
 
                             # Wait for the page to update
                             time.sleep(2)
@@ -220,10 +224,6 @@ class Catalog:
 
     def get_categories(self):
         return [x.value for x in Category]
-
-    def requires_playwright(self) -> bool:
-        """HRO requires Playwright for dynamic content."""
-        return True
 
     def get_items(self, category_name: str) -> list[Product]:
         if category_name == Category.used:
