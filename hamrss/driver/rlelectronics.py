@@ -1,6 +1,7 @@
 """R&L Electronics catalog scraper driver."""
 
-from playwright.sync_api import Page, Browser
+import requests
+from bs4 import BeautifulSoup
 import re
 from enum import Enum
 
@@ -16,27 +17,26 @@ class Category(str, Enum):
 class Catalog:
     """R&L Electronics catalog scraper for used equipment."""
 
-    def __init__(self, browser: Browser):
-        self.browser = browser
+    def __init__(self, browser=None):
+        # Ignore the browser parameter as we use requests instead
+        pass
 
-    def _extract_products_from_page(self, page: Page) -> list[Product]:
-        """Extract product information from the table."""
+    def _extract_products_from_html(self, html_content: str) -> list[Product]:
+        """Extract product information from the HTML content."""
         products = []
-
-        # Wait for page to load
-        page.wait_for_load_state("networkidle")
+        soup = BeautifulSoup(html_content, 'html.parser')
 
         # Find the main table with products
-        table = page.query_selector("table[border='1'][bordercolor='#000000']")
+        table = soup.find("table", {"border": "1", "bordercolor": "#000000"})
         if not table:
             return products
 
-        # Get all rows except the first (header)
-        rows = table.query_selector_all("tbody tr")
+        # Get all rows from table (no tbody element)
+        rows = table.find_all("tr")
 
         for row in rows:
             try:
-                cells = row.query_selector_all("td")
+                cells = row.find_all("td")
                 if len(cells) < 3:
                     continue
 
@@ -44,7 +44,7 @@ class Catalog:
 
                 # Extract manufacturer from first cell
                 manufacturer_cell = cells[0]
-                manufacturer = manufacturer_cell.inner_text().strip()
+                manufacturer = manufacturer_cell.get_text().strip()
                 if manufacturer:
                     product_data["manufacturer"] = manufacturer
 
@@ -52,9 +52,9 @@ class Catalog:
                 desc_cell = cells[1]
 
                 # Extract URL from the link
-                link_elem = desc_cell.query_selector("a")
+                link_elem = desc_cell.find("a")
                 if link_elem:
-                    href = link_elem.get_attribute("href")
+                    href = link_elem.get("href")
                     if href and not href.startswith("http"):
                         product_data["url"] = f"https://www2.randl.com/{href}"
                     else:
@@ -66,7 +66,7 @@ class Catalog:
                         product_data["product_id"] = product_id
 
                 # Extract full description text
-                desc_text = desc_cell.inner_text().strip()
+                desc_text = desc_cell.get_text().strip()
                 if desc_text:
                     product_data["description"] = desc_text
 
@@ -81,7 +81,7 @@ class Catalog:
 
                 # Extract price from third cell
                 price_cell = cells[2]
-                price_text = price_cell.inner_text().strip()
+                price_text = price_cell.get_text().strip()
                 if price_text and price_text.startswith("$"):
                     product_data["price"] = price_text
 
@@ -108,26 +108,17 @@ class Catalog:
 
     def get_used_items(self) -> list[Product]:
         """Fetch all used equipment from R&L Electronics."""
-        all_products: list[Product] = []
-        page = self.browser.new_page()
-
         try:
-            print("Navigating to R&L Electronics used equipment...")
-            page.goto("https://www2.randl.com/index.php?main_page=usedbrand")
+            print("Fetching R&L Electronics used equipment...")
+            response = requests.get("https://www2.randl.com/index.php?main_page=usedbrand")
+            response.raise_for_status()
 
-            # Wait for the page to load
-            page.wait_for_load_state("networkidle")
+            # Extract products from the HTML content
+            products = self._extract_products_from_html(response.text)
 
-            # Extract products from the table
-            products = self._extract_products_from_page(page)
-            all_products.extend(products)
-
-            print(f"Scraping completed! Total products found: {len(all_products)}")
+            print(f"Scraping completed! Total products found: {len(products)}")
+            return products
 
         except Exception as e:
             print(f"Error during scraping: {e}")
-
-        finally:
-            page.close()
-
-        return all_products
+            return []
