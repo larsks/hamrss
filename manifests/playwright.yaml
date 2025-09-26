@@ -1,0 +1,40 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: playwright
+  labels:
+    component: playwright
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      component: playwright
+  template:
+    metadata:
+      labels:
+        component: playwright
+    spec:
+      containers:
+        - name: playwright
+          image: ghcr.io/larsks/hamrss:playwright-1.54.0
+          ports:
+            - containerPort: 3000
+          resources:
+            requests:
+              memory: "512Mi"
+              cpu: "250m"
+            limits:
+              memory: "1Gi"
+              cpu: "500m"
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: playwright
+spec:
+  selector:
+    component: playwright
+  ports:
+    - port: 3000
+      targetPort: 3000
+  type: ClusterIP

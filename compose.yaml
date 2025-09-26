@@ -18,21 +18,10 @@ services:
       start_period: 10s # Optional: allow time for initial startup before checks begin
 
   playwright:
-    image: mcr.microsoft.com/playwright:v1.54.0-noble
+    image: ghcr.io/larsks/hamrss:playwright-1.54.0
     init: true
     user: pwuser
     working_dir: /home/pwuser
-    command:
-      [
-        "npx",
-        "-y",
-        "playwright@1.54.0",
-        "run-server",
-        "--port",
-        "3000",
-        "--host",
-        "0.0.0.0",
-      ]
 
   importer:
     build:
