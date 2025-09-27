@@ -37,8 +37,10 @@ def main() -> None:
 
     logger = logging.getLogger(__name__)
     logger.info("Starting Ham Radio Scraper Server")
-    logger.info(f"Configuration: {settings.scrape_interval_hours}h interval, "
-                f"{len(settings.get_enabled_drivers())} drivers enabled")
+    logger.info(
+        f"Configuration: {settings.scrape_interval_hours}h interval, "
+        f"{len(settings.get_enabled_drivers())} drivers enabled"
+    )
 
     db_manager: Optional[object] = None
     scheduler: Optional[ScraperScheduler] = None

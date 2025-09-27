@@ -92,21 +92,23 @@ class Catalog:
                 if len(title_parts) >= 2:
                     # Skip generic prefixes
                     start_idx = 0
-                    if title_parts[0].upper() in ['FOR', 'FS:', 'SALE', 'NEW', 'USED']:
+                    if title_parts[0].upper() in ["FOR", "FS:", "SALE", "NEW", "USED"]:
                         start_idx = 1
 
                     if start_idx < len(title_parts):
                         # First meaningful word is often the manufacturer
                         potential_manufacturer = title_parts[start_idx]
-                        if potential_manufacturer[0].isupper() and not potential_manufacturer.startswith("-"):
+                        if potential_manufacturer[
+                            0
+                        ].isupper() and not potential_manufacturer.startswith("-"):
                             product_data["manufacturer"] = potential_manufacturer
                             # Next 1-2 words could be the model
                             if start_idx + 1 < len(title_parts):
-                                model_parts = title_parts[start_idx + 1:start_idx + 3]
+                                model_parts = title_parts[start_idx + 1 : start_idx + 3]
                                 product_data["model"] = " ".join(model_parts)
 
                 # Find the containing structure to get associated links and content
-                container = bold_element.find_parent(['dt', 'dd', 'DT', 'DD'])
+                container = bold_element.find_parent(["dt", "dd", "DT", "DD"])
                 if not container:
                     container = bold_element.find_parent()
 
@@ -139,11 +141,14 @@ class Catalog:
 
                 # Navigate through the DOM to find the description DD
                 for _ in range(5):
-                    current = current.find_next_sibling(['dd', 'DD'])
+                    current = current.find_next_sibling(["dd", "DD"])
                     if current:
                         text = current.get_text().strip()
                         # Skip if this looks like metadata or action links
-                        if not text.startswith(("Listing #", "Click to")) and len(text) > 10:
+                        if (
+                            not text.startswith(("Listing #", "Click to"))
+                            and len(text) > 10
+                        ):
                             description_dd = current
                             break
                     else:
@@ -160,14 +165,21 @@ class Catalog:
                         product_data["price"] = price_match.group().strip()
 
                     # Clean description by removing price and payment info
-                    desc_clean = re.sub(price_pattern, "", desc_text, flags=re.IGNORECASE)
-                    desc_clean = re.sub(r'\b(paypal|check|money order|payment)\b', "", desc_clean, flags=re.IGNORECASE)
-                    desc_clean = re.sub(r'\s+', ' ', desc_clean).strip()
+                    desc_clean = re.sub(
+                        price_pattern, "", desc_text, flags=re.IGNORECASE
+                    )
+                    desc_clean = re.sub(
+                        r"\b(paypal|check|money order|payment)\b",
+                        "",
+                        desc_clean,
+                        flags=re.IGNORECASE,
+                    )
+                    desc_clean = re.sub(r"\s+", " ", desc_clean).strip()
 
                     # Take first sentence or up to 200 chars as description
                     if desc_clean:
                         # Split on periods and take first substantial sentence
-                        sentences = desc_clean.split('.')
+                        sentences = desc_clean.split(".")
                         if sentences and len(sentences[0]) > 20:
                             product_data["description"] = sentences[0].strip()
                         elif len(desc_clean) <= 200:
@@ -178,7 +190,7 @@ class Catalog:
                 # Look for metadata in subsequent DD elements
                 metadata_dd = None
                 if description_dd:
-                    metadata_dd = description_dd.find_next_sibling(['dd', 'DD'])
+                    metadata_dd = description_dd.find_next_sibling(["dd", "DD"])
 
                 if metadata_dd:
                     metadata_text = metadata_dd.get_text()

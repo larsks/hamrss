@@ -31,7 +31,9 @@ class StorageManager:
         self.session.flush()
         self.session.refresh(scrape_run)
 
-        logger.info(f"Created scrape run {scrape_run.id} with {len(enabled_drivers)} drivers")
+        logger.info(
+            f"Created scrape run {scrape_run.id} with {len(enabled_drivers)} drivers"
+        )
         return scrape_run.id
 
     def complete_scrape_run(
@@ -42,11 +44,17 @@ class StorageManager:
     ) -> None:
         """Mark a scrape run as completed."""
         # Get final statistics
-        driver_stats = self.session.execute(
-            select(DriverStats).where(DriverStats.scrape_run_id == scrape_run_id)
-        ).scalars().all()
+        driver_stats = (
+            self.session.execute(
+                select(DriverStats).where(DriverStats.scrape_run_id == scrape_run_id)
+            )
+            .scalars()
+            .all()
+        )
 
-        completed_drivers = sum(1 for stat in driver_stats if stat.status == "completed")
+        completed_drivers = sum(
+            1 for stat in driver_stats if stat.status == "completed"
+        )
         failed_drivers = sum(1 for stat in driver_stats if stat.status == "failed")
         total_products = sum(stat.products_found for stat in driver_stats)
 
@@ -99,7 +107,9 @@ class StorageManager:
             select(DriverStats.started_at).where(DriverStats.id == stats_id)
         ).scalar_one()
 
-        duration_seconds = int((datetime.now(timezone.utc) - started_at).total_seconds())
+        duration_seconds = int(
+            (datetime.now(timezone.utc) - started_at).total_seconds()
+        )
 
         self.session.execute(
             update(DriverStats)
@@ -142,7 +152,7 @@ class StorageManager:
                 select(Product.url).where(
                     and_(
                         Product.driver_name == driver_name,
-                        Product.url.in_([p.url for p in products])
+                        Product.url.in_([p.url for p in products]),
                     )
                 )
             )
@@ -197,7 +207,7 @@ class StorageManager:
                     "is_active": True,
                     # Preserve first_seen for existing records
                     "first_seen": Product.first_seen,
-                }
+                },
             )
 
             # Count as new or updated
@@ -269,17 +279,16 @@ class StorageManager:
     def get_recent_scrape_runs(self, limit: int = 10) -> List[ScrapeRun]:
         """Get recent scrape runs for monitoring."""
         result = self.session.execute(
-            select(ScrapeRun)
-            .order_by(ScrapeRun.started_at.desc())
-            .limit(limit)
+            select(ScrapeRun).order_by(ScrapeRun.started_at.desc()).limit(limit)
         )
         return result.scalars().all()
 
     def get_product_counts_by_driver(self) -> dict[str, int]:
         """Get active product counts by driver."""
         result = self.session.execute(
-            select(Product.driver_name, Product.category)
-            .where(Product.is_active == True)
+            select(Product.driver_name, Product.category).where(
+                Product.is_active == True
+            )
         )
 
         counts = {}

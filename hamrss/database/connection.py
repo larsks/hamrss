@@ -15,6 +15,7 @@ logger = logging.getLogger(__name__)
 
 class DatabaseSettings(Protocol):
     """Protocol for database settings."""
+
     database_url: str
     db_pool_size: int
     db_pool_overflow: int
@@ -60,7 +61,9 @@ class DatabaseManager:
         logger.info("Running database migrations")
         migration_manager = setup_migrations(self.engine)
         migration_manager.apply_migrations()
-        logger.info(f"Database schema at version: {migration_manager.get_current_version()}")
+        logger.info(
+            f"Database schema at version: {migration_manager.get_current_version()}"
+        )
 
         # Create any remaining tables that aren't handled by migrations
         # This ensures new tables in the models are created

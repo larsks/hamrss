@@ -44,7 +44,7 @@ class Migration:
                 self.up_sql(engine)
             else:
                 # If it's a string, execute as SQL
-                for statement in self.up_sql.split(';'):
+                for statement in self.up_sql.split(";"):
                     statement = statement.strip()
                     if statement:
                         conn.execute(text(statement))
@@ -59,7 +59,7 @@ class Migration:
         logger.info(f"Rolling back migration {self.version}: {self.description}")
 
         with engine.begin() as conn:
-            for statement in self.down_sql.split(';'):
+            for statement in self.down_sql.split(";"):
                 statement = statement.strip()
                 if statement:
                     conn.execute(text(statement))
@@ -81,11 +81,16 @@ class MigrationManager:
         metadata = MetaData()
 
         migration_table = Table(
-            'schema_migrations',
+            "schema_migrations",
             metadata,
-            Column('version', Integer, primary_key=True),
-            Column('description', String(255), nullable=False),
-            Column('applied_at', DateTime(timezone=True), nullable=False, default=func.now()),
+            Column("version", Integer, primary_key=True),
+            Column("description", String(255), nullable=False),
+            Column(
+                "applied_at",
+                DateTime(timezone=True),
+                nullable=False,
+                default=func.now(),
+            ),
         )
 
         # Create the table if it doesn't exist
@@ -101,7 +106,9 @@ class MigrationManager:
     def get_applied_versions(self) -> List[int]:
         """Get list of migration versions that have been applied."""
         with self.engine.begin() as conn:
-            result = conn.execute(text("SELECT version FROM schema_migrations ORDER BY version"))
+            result = conn.execute(
+                text("SELECT version FROM schema_migrations ORDER BY version")
+            )
             return [row[0] for row in result]
 
     def get_pending_migrations(self) -> List[Migration]:
@@ -133,12 +140,14 @@ class MigrationManager:
         """Record that a migration has been applied."""
         with self.engine.begin() as conn:
             conn.execute(
-                text("INSERT INTO schema_migrations (version, description, applied_at) VALUES (:version, :description, :applied_at)"),
+                text(
+                    "INSERT INTO schema_migrations (version, description, applied_at) VALUES (:version, :description, :applied_at)"
+                ),
                 {
                     "version": migration.version,
                     "description": migration.description,
-                    "applied_at": datetime.now(timezone.utc)
-                }
+                    "applied_at": datetime.now(timezone.utc),
+                },
             )
 
     def get_current_version(self) -> int:
@@ -161,19 +170,25 @@ def _add_title_column_migration(engine: Engine) -> None:
     table_exists = False
     try:
         with engine.begin() as conn:
-            if str(engine.url).startswith('sqlite'):
-                table_check = conn.execute(text(
-                    "SELECT name FROM sqlite_master WHERE type='table' AND name='products'"
-                )).fetchone()
+            if str(engine.url).startswith("sqlite"):
+                table_check = conn.execute(
+                    text(
+                        "SELECT name FROM sqlite_master WHERE type='table' AND name='products'"
+                    )
+                ).fetchone()
             else:
-                table_check = conn.execute(text(
-                    "SELECT table_name FROM information_schema.tables WHERE table_name='products'"
-                )).fetchone()
+                table_check = conn.execute(
+                    text(
+                        "SELECT table_name FROM information_schema.tables WHERE table_name='products'"
+                    )
+                ).fetchone()
 
             table_exists = table_check is not None
 
     except Exception as e:
-        logger.info(f"Could not check for products table existence: {e}, skipping migration")
+        logger.info(
+            f"Could not check for products table existence: {e}, skipping migration"
+        )
         return
 
     if not table_exists:
@@ -184,16 +199,18 @@ def _add_title_column_migration(engine: Engine) -> None:
     column_exists = False
     try:
         with engine.begin() as conn:
-            if str(engine.url).startswith('sqlite'):
+            if str(engine.url).startswith("sqlite"):
                 # For SQLite, try selecting the column
                 conn.execute(text("SELECT title FROM products LIMIT 1"))
                 column_exists = True
             else:
                 # For PostgreSQL, use information_schema
-                result = conn.execute(text("""
+                result = conn.execute(
+                    text("""
                     SELECT column_name FROM information_schema.columns
                     WHERE table_name = 'products' AND column_name = 'title'
-                """)).fetchone()
+                """)
+                ).fetchone()
                 column_exists = result is not None
 
     except Exception:
@@ -219,9 +236,10 @@ def _add_title_column_migration(engine: Engine) -> None:
         with engine.begin() as conn:
             # Update existing rows to have a title based on description
             # This provides a reasonable default for existing data
-            if str(engine.url).startswith('sqlite'):
+            if str(engine.url).startswith("sqlite"):
                 # SQLite syntax
-                conn.execute(text("""
+                conn.execute(
+                    text("""
                     UPDATE products
                     SET title = CASE
                         WHEN manufacturer IS NOT NULL AND model IS NOT NULL
@@ -231,10 +249,12 @@ def _add_title_column_migration(engine: Engine) -> None:
                         ELSE 'Ham Radio Equipment'
                     END
                     WHERE title IS NULL
-                """))
+                """)
+                )
             else:
                 # PostgreSQL/MySQL syntax
-                conn.execute(text("""
+                conn.execute(
+                    text("""
                     UPDATE products
                     SET title = CASE
                         WHEN manufacturer IS NOT NULL AND model IS NOT NULL
@@ -244,7 +264,8 @@ def _add_title_column_migration(engine: Engine) -> None:
                         ELSE 'Ham Radio Equipment'
                     END
                     WHERE title IS NULL
-                """))
+                """)
+                )
             logger.info("Updated existing products with default titles")
     except Exception as e:
         logger.error(f"Failed to update existing products with titles: {e}")
@@ -255,17 +276,23 @@ def _add_title_column_migration(engine: Engine) -> None:
         with engine.begin() as conn:
             # For SQLite, we need to recreate the table to add NOT NULL constraint
             # For other databases, we can use ALTER COLUMN
-            if str(engine.url).startswith('sqlite'):
+            if str(engine.url).startswith("sqlite"):
                 # SQLite doesn't support ALTER COLUMN, so we'll skip making it NOT NULL for now
                 # The application code will ensure new records have titles
-                logger.info("SQLite detected - skipping NOT NULL constraint (handled by application)")
+                logger.info(
+                    "SQLite detected - skipping NOT NULL constraint (handled by application)"
+                )
             else:
                 # Make the column NOT NULL after populating it
-                conn.execute(text("ALTER TABLE products ALTER COLUMN title SET NOT NULL"))
+                conn.execute(
+                    text("ALTER TABLE products ALTER COLUMN title SET NOT NULL")
+                )
                 logger.info("Title column set to NOT NULL")
 
                 # Make description column nullable if it isn't already
-                conn.execute(text("ALTER TABLE products ALTER COLUMN description DROP NOT NULL"))
+                conn.execute(
+                    text("ALTER TABLE products ALTER COLUMN description DROP NOT NULL")
+                )
                 logger.info("Description column set to nullable")
     except Exception as e:
         logger.error(f"Failed to apply column constraints: {e}")

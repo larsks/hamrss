@@ -66,7 +66,9 @@ class PlaywrightServer:
         with sync_playwright() as p:
             browser = p.chromium.connect(self.ws_url)
             try:
-                self.logger.info(f"Browser connected to Playwright server at {self.ws_url}")
+                self.logger.info(
+                    f"Browser connected to Playwright server at {self.ws_url}"
+                )
                 yield browser
             finally:
                 browser.close()

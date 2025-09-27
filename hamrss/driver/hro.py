@@ -130,7 +130,9 @@ class Catalog:
                     else:
                         product_data["image_url"] = src
 
-                if product_data.get("title"):  # Only add if we have a title (required field)
+                if product_data.get(
+                    "title"
+                ):  # Only add if we have a title (required field)
                     product = Product(**product_data)
                     products.append(product)
 

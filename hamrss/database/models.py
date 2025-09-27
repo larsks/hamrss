@@ -31,7 +31,9 @@ class Product(Base):
     model = Column(String(100), nullable=True)
     product_id = Column(String(100), nullable=True)
     location = Column(String(100), nullable=True)
-    date_added = Column(String(50), nullable=True)  # Store as string since format varies
+    date_added = Column(
+        String(50), nullable=True
+    )  # Store as string since format varies
     price = Column(String(50), nullable=True)
     image_url = Column(String(500), nullable=True)
 
@@ -70,7 +72,9 @@ class ScrapeRun(Base):
     # Run information
     started_at = Column(DateTime(timezone=True), nullable=False, default=func.now())
     completed_at = Column(DateTime(timezone=True), nullable=True)
-    status = Column(String(20), nullable=False, default="running")  # running, completed, failed
+    status = Column(
+        String(20), nullable=False, default="running"
+    )  # running, completed, failed
 
     # Statistics
     total_drivers = Column(Integer, nullable=False, default=0)
@@ -146,7 +150,9 @@ class DriverStats(Base):
     duration_seconds = Column(Integer, nullable=True)
 
     # Status
-    status = Column(String(20), nullable=False, default="running")  # running, completed, failed
+    status = Column(
+        String(20), nullable=False, default="running"
+    )  # running, completed, failed
     error_message = Column(Text, nullable=True)
 
     # Indexes
@@ -154,7 +160,9 @@ class DriverStats(Base):
         Index("idx_driver_stats_run_id", "scrape_run_id"),
         Index("idx_driver_stats_driver", "driver_name"),
         Index("idx_driver_stats_started_at", "started_at"),
-        UniqueConstraint("scrape_run_id", "driver_name", "category", name="uq_driver_stat_per_run"),
+        UniqueConstraint(
+            "scrape_run_id", "driver_name", "category", name="uq_driver_stat_per_run"
+        ),
     )
 
     def __repr__(self):

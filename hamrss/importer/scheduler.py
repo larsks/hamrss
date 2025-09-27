@@ -47,7 +47,7 @@ class ScraperScheduler:
             id="scrape_job",
             name="Ham Radio Catalog Scraper",
             max_instances=1,  # Prevent overlapping runs
-            coalesce=True,    # Combine missed runs
+            coalesce=True,  # Combine missed runs
             misfire_grace_time=300,  # 5 minutes grace for missed jobs
         )
 
@@ -111,11 +111,12 @@ class ScraperScheduler:
             duration = datetime.now(timezone.utc) - job_start
             logger.error(
                 f"Scrape job failed after {duration.total_seconds():.1f}s: {e}",
-                exc_info=True
+                exc_info=True,
             )
 
     def _setup_signal_handlers(self) -> None:
         """Setup signal handlers for graceful shutdown."""
+
         def signal_handler(signum, frame):
             logger.info("Received signal, initiating graceful shutdown")
             self.shutdown_event.set()
@@ -161,7 +162,9 @@ class ScraperScheduler:
                 return False
 
             success = self.orchestrator.run_scrape_cycle()
-            logger.info(f"Manual scrape completed: {'success' if success else 'failed'}")
+            logger.info(
+                f"Manual scrape completed: {'success' if success else 'failed'}"
+            )
             return success
 
         except Exception as e:

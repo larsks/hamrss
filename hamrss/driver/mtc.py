@@ -68,10 +68,9 @@ class Catalog:
                         )
 
                         # Set the cleaned title as our product title
-                        product_data["title"] = title_cleaned if title_cleaned else title
-
-                        # Also keep the full original title as description for more detail
-                        product_data["description"] = title
+                        product_data["title"] = (
+                            title_cleaned if title_cleaned else title
+                        )
 
                         # Split on first space to get potential manufacturer
                         parts = title_cleaned.split()
@@ -103,7 +102,9 @@ class Catalog:
                         product_id = cart_href.split("product_id=")[1].split("&")[0]
                         product_data["product_id"] = product_id
 
-                if product_data.get("title"):  # Only add if we have a title (required field)
+                if product_data.get(
+                    "title"
+                ):  # Only add if we have a title (required field)
                     product = Product(**product_data)
                     products.append(product)
 
@@ -198,4 +199,3 @@ class Catalog:
         return self._scrape_catalog(
             "https://www.mtcradio.com/used-gear/", "MTC Radio used equipment"
         )
-

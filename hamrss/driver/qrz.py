@@ -54,38 +54,39 @@ class Catalog:
 
             # Parse the login page to get the correct form action and fields
             from bs4 import BeautifulSoup
-            soup = BeautifulSoup(login_page_response.text, 'html.parser')
+
+            soup = BeautifulSoup(login_page_response.text, "html.parser")
 
             # Find the login form
-            login_form = soup.find('form')
+            login_form = soup.find("form")
             if not login_form:
                 print("Could not find login form")
                 return False
 
             # Get the correct form action
-            form_action = login_form.get('action', '/login')
-            if form_action.startswith('//'):
+            form_action = login_form.get("action", "/login")
+            if form_action.startswith("//"):
                 login_url = f"https:{form_action}"
-            elif form_action.startswith('/'):
+            elif form_action.startswith("/"):
                 login_url = f"https://www.qrz.com{form_action}"
             else:
                 login_url = form_action
 
             # Extract all form fields
             form_data = {}
-            inputs = login_form.find_all('input')
+            inputs = login_form.find_all("input")
 
             for inp in inputs:
-                input_name = inp.get('name')
-                input_type = inp.get('type', 'text')
-                input_value = inp.get('value', '')
+                input_name = inp.get("name")
+                input_type = inp.get("type", "text")
+                input_value = inp.get("value", "")
 
                 if input_name:
-                    if input_name == 'username':
+                    if input_name == "username":
                         form_data[input_name] = self.settings.username
-                    elif input_name == 'password':
+                    elif input_name == "password":
                         form_data[input_name] = self.settings.password
-                    elif input_type.lower() in ['hidden', 'checkbox']:
+                    elif input_type.lower() in ["hidden", "checkbox"]:
                         form_data[input_name] = input_value
 
             # Submit the login form
@@ -106,10 +107,12 @@ class Catalog:
                 "invalid username",
                 "invalid password",
                 "incorrect username",
-                "incorrect password"
+                "incorrect password",
             ]
 
-            login_failed = any(error in response_text_lower for error in error_indicators)
+            login_failed = any(
+                error in response_text_lower for error in error_indicators
+            )
 
             if login_failed:
                 print("Authentication with QRZ failed")

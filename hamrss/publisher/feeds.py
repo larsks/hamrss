@@ -116,16 +116,24 @@ class RSSFeedGenerator:
             fe.category(term=category)
 
     def _create_product_content(self, product: Product) -> str:
-        """Create plain-text content for a product."""
-        lines = []
+        """Create content for a product with title and description outside the metadata table."""
+        content_parts = []
+
+        # Add title (required field, always present)
+        content_parts.append(f"<h3>{product.title}</h3>")
+
+        # Add description if available (outside the table)
+        if product.description:
+            content_parts.append(f"<p>{product.description}</p><br/>")
+
+        # Create metadata table for the rest of the information
+        metadata_lines = []
 
         # Helper function to add line if value exists
         def add_line(label: str, value: str | None):
             if value:
-                lines.append(f"{label}: {value}")
+                metadata_lines.append(f"{label}: {value}")
 
-        add_line("Title", product.title)
-        add_line("Description", product.description)
         add_line("Manufacturer", product.manufacturer)
         add_line("Model", product.model)
         add_line("Price", product.price)
@@ -147,9 +155,11 @@ class RSSFeedGenerator:
         if product.url:
             add_line("Link", product.url)
 
-        content = "<pre>" + "\n".join(lines) + "</pre>"
+        # Add metadata table if there are any metadata lines
+        if metadata_lines:
+            content_parts.append("<pre>" + "\n".join(metadata_lines) + "</pre>")
 
-        return content
+        return "\n".join(content_parts)
 
     def create_all_items_feed(self, products: list[Product]) -> str:
         """Create feed for all items."""

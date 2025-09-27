@@ -92,7 +92,9 @@ class Catalog:
                     title_parts.append(model)
                 elif desc_text:
                     # If no model parsed, use first part of description
-                    desc_cleaned = re.sub(r"^Used\s+", "", desc_text, flags=re.IGNORECASE)
+                    desc_cleaned = re.sub(
+                        r"^Used\s+", "", desc_text, flags=re.IGNORECASE
+                    )
                     first_words = " ".join(desc_cleaned.split()[:3])
                     if first_words:
                         title_parts.append(first_words)
@@ -108,7 +110,9 @@ class Catalog:
                 if price_text and price_text.startswith("$"):
                     product_data["price"] = price_text
 
-                if product_data.get("title"):  # Only add if we have a title (required field)
+                if product_data.get(
+                    "title"
+                ):  # Only add if we have a title (required field)
                     product = Product(**product_data)
                     products.append(product)
 
@@ -147,4 +151,3 @@ class Catalog:
         except Exception as e:
             print(f"Error during scraping: {e}")
             return []
-

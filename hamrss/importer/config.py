@@ -55,7 +55,7 @@ class ServerSettings(BaseSettings):
                     "hamrss.driver.mtc",
                     "hamrss.driver.randl",
                     "hamrss.driver.hro",
-                    "hamrss.driver.qrz"
+                    "hamrss.driver.qrz",
                 ]
 
     # Playwright configuration

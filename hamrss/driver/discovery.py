@@ -28,11 +28,11 @@ def discover_available_drivers() -> Dict[str, dict]:
                 module = importlib.import_module(ep.value)
 
                 # Check if module has a Catalog class
-                if not hasattr(module, 'Catalog'):
+                if not hasattr(module, "Catalog"):
                     logger.warning(f"Driver {ep.name} missing Catalog class")
                     continue
 
-                catalog_class = getattr(module, 'Catalog')
+                catalog_class = getattr(module, "Catalog")
 
                 # Create instance and validate using isinstance with the protocol
                 try:
@@ -48,14 +48,16 @@ def discover_available_drivers() -> Dict[str, dict]:
                             pass
 
                         driver_info[ep.name] = {
-                            'name': ep.name,
-                            'module': ep.value,
-                            'catalog_class': catalog_class,
-                            'categories': categories,
-                            'entry_point': ep
+                            "name": ep.name,
+                            "module": ep.value,
+                            "catalog_class": catalog_class,
+                            "categories": categories,
+                            "entry_point": ep,
                         }
                     else:
-                        logger.warning(f"Driver {ep.name} Catalog class does not implement the required protocol")
+                        logger.warning(
+                            f"Driver {ep.name} Catalog class does not implement the required protocol"
+                        )
 
                 except Exception as e:
                     logger.warning(f"Could not instantiate driver {ep.name}: {e}")
@@ -78,7 +80,7 @@ def get_available_driver_modules() -> List[str]:
     Returns only drivers that can be imported and implement the Catalog protocol.
     """
     driver_info = discover_available_drivers()
-    return [info['module'] for info in driver_info.values()]
+    return [info["module"] for info in driver_info.values()]
 
 
 def get_available_driver_names() -> List[str]:

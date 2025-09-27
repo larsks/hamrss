@@ -68,7 +68,9 @@ class DriverScraper:
 
                         # Get products from the driver
                         products = catalog.get_items(category)
-                        logger.info(f"Found {len(products)} products in {driver_name}/{category}")
+                        logger.info(
+                            f"Found {len(products)} products in {driver_name}/{category}"
+                        )
 
                         # Store products in database
                         new_count, updated_count = storage.store_products(
@@ -174,7 +176,9 @@ class ScrapeOrchestrator:
 
             try:
                 # Create scrape run
-                scrape_run_id = storage.create_scrape_run(self.settings.get_enabled_drivers())
+                scrape_run_id = storage.create_scrape_run(
+                    self.settings.get_enabled_drivers()
+                )
 
                 # Create driver scraper
                 driver_scraper = DriverScraper(self.settings, self.playwright_server)
@@ -186,7 +190,9 @@ class ScrapeOrchestrator:
                 # Run drivers sequentially (simpler than async concurrency)
                 for driver_name in self.settings.get_enabled_drivers():
                     try:
-                        success = driver_scraper.scrape_driver(driver_name, scrape_run_id, self.db_manager)
+                        success = driver_scraper.scrape_driver(
+                            driver_name, scrape_run_id, self.db_manager
+                        )
                         if success:
                             successful_drivers += 1
                         else:
