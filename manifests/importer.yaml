@@ -22,6 +22,9 @@ spec:
                 name: hamrss-config
             - secretRef:
                 name: hamrss-secrets
+          env:
+            - name: HAMRSS_IMPORTER_PLAYWRIGHT_SERVER_URL
+              value: ws://playwright:3000
           resources:
             requests:
               memory: "512Mi"
