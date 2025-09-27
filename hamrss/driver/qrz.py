@@ -94,18 +94,31 @@ class Catalog:
             )
             login_response.raise_for_status()
 
-            # Check if login was successful by looking for typical success indicators
-            # This is a basic check - may need refinement based on actual QRZ behavior
-            if (
-                "logout" in login_response.text.lower()
-                or login_response.url != "https://www.qrz.com/login"
-            ):
+            # Check if login was successful by looking for error messages
+            # QRZ shows specific error messages for failed logins
+            response_text_lower = login_response.text.lower()
+
+            # Check for specific QRZ error messages
+            error_indicators = [
+                "no user found with the argument",
+                "we could not log you in",
+                "login failed",
+                "invalid username",
+                "invalid password",
+                "incorrect username",
+                "incorrect password"
+            ]
+
+            login_failed = any(error in response_text_lower for error in error_indicators)
+
+            if login_failed:
+                print("Authentication with QRZ failed")
+                return False
+            else:
+                # No error messages found, assume success
                 self._authenticated = True
                 print("Successfully authenticated with QRZ")
                 return True
-            else:
-                print("Authentication with QRZ failed")
-                return False
 
         except Exception as e:
             print(f"Error during QRZ authentication: {e}")
@@ -200,7 +213,7 @@ class Catalog:
 
     def get_ham_radio_gear_for_sale(self) -> list[Product]:
         """Fetch all ham radio gear for sale from QRZ RSS feed."""
-        rss_url = "http://qrzrss.internal/feed/index.php?forums/ham-radio-gear-for-sale.7/index.rss"
+        rss_url = "https://forums.qrz.com/index.php?forums/ham-radio-gear-for-sale.7/index.rss"
 
         print("Fetching QRZ ham radio gear for sale RSS feed...")
 
