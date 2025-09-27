@@ -28,7 +28,7 @@ class ServerSettings(BaseSettings):
     )
 
     enabled_drivers: str = Field(
-        default="hamrss.driver.mtc,hamrss.driver.rlelectronics,hamrss.driver.hro",
+        default="hamrss.driver.mtc,hamrss.driver.rlelectronics,hamrss.driver.hro,hamrss.driver.qrz",
         description="Comma-separated list of driver module names to use for scraping",
     )
 
