@@ -8,6 +8,7 @@ from sqlalchemy import event, create_engine, Engine, text
 from sqlalchemy.orm import sessionmaker, Session
 
 from .models import Base
+from .migrations import setup_migrations
 
 logger = logging.getLogger(__name__)
 
@@ -55,7 +56,14 @@ class DatabaseManager:
             expire_on_commit=False,
         )
 
-        # Create tables if they don't exist
+        # Run database migrations first
+        logger.info("Running database migrations")
+        migration_manager = setup_migrations(self.engine)
+        migration_manager.apply_migrations()
+        logger.info(f"Database schema at version: {migration_manager.get_current_version()}")
+
+        # Create any remaining tables that aren't handled by migrations
+        # This ensures new tables in the models are created
         Base.metadata.create_all(self.engine)
         logger.info("Database tables created/verified")
 

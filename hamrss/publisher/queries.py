@@ -1,7 +1,7 @@
 """Database queries for RSS feed generation."""
 
 import logging
-from typing import List, Optional
+from typing import List
 
 from sqlalchemy import select, and_, desc
 from sqlalchemy.orm import Session

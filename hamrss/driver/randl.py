@@ -1,4 +1,4 @@
-"""R&L Electronics catalog scraper driver."""
+"""R&L Electronics (randl) catalog scraper driver."""
 
 import requests
 from bs4 import BeautifulSoup
@@ -67,9 +67,8 @@ class Catalog:
 
                 # Extract full description text
                 desc_text = desc_cell.get_text().strip()
+                model = None
                 if desc_text:
-                    product_data["description"] = desc_text
-
                     # Try to parse model from description
                     # Look for text after "Used " prefix
                     desc_cleaned = re.sub(
@@ -79,7 +78,29 @@ class Catalog:
                         # Take first few words as potential model
                         model_parts = desc_cleaned.split()[:2]
                         if model_parts:
-                            product_data["model"] = " ".join(model_parts)
+                            model = " ".join(model_parts)
+                            product_data["model"] = model
+
+                    # Set description to full text (may include more details than just model)
+                    product_data["description"] = desc_text
+
+                # Create title from manufacturer and model
+                title_parts = []
+                if manufacturer:
+                    title_parts.append(manufacturer)
+                if model:
+                    title_parts.append(model)
+                elif desc_text:
+                    # If no model parsed, use first part of description
+                    desc_cleaned = re.sub(r"^Used\s+", "", desc_text, flags=re.IGNORECASE)
+                    first_words = " ".join(desc_cleaned.split()[:3])
+                    if first_words:
+                        title_parts.append(first_words)
+
+                if title_parts:
+                    product_data["title"] = " ".join(title_parts)
+                else:
+                    product_data["title"] = "Ham Radio Equipment"
 
                 # Extract price from third cell
                 price_cell = cells[2]
@@ -87,7 +108,7 @@ class Catalog:
                 if price_text and price_text.startswith("$"):
                     product_data["price"] = price_text
 
-                if product_data:  # Only add if we extracted some data
+                if product_data.get("title"):  # Only add if we have a title (required field)
                     product = Product(**product_data)
                     products.append(product)
 

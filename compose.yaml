@@ -16,6 +16,8 @@ services:
       timeout: 5s
       retries: 5
       start_period: 10s # Optional: allow time for initial startup before checks begin
+    ports:
+      - "5432:5432"
 
   playwright:
     image: ghcr.io/larsks/hamrss:playwright-1.54.0

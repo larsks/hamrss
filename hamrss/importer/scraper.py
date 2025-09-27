@@ -3,7 +3,7 @@
 import importlib
 import logging
 import traceback
-from typing import List, Optional
+from typing import Optional
 
 from .config import ServerSettings
 from ..database.connection import DatabaseManager

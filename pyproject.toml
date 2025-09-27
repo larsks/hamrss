@@ -35,6 +35,6 @@ hamrss-publisher = "hamrss.publisher.main:run_server"
 [project.entry-points."hamrss.drivers"]
 mtc = "hamrss.driver.mtc"
 hro = "hamrss.driver.hro"
-rlelectronics = "hamrss.driver.rlelectronics"
+randl = "hamrss.driver.randl"
 qrz = "hamrss.driver.qrz"
 qth = "hamrss.driver.qth"

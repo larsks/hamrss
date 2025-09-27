@@ -77,7 +77,7 @@ All configuration is done via environment variables with the `HAMRSS_` prefix:
 |----------|---------|-------------|
 | `HAMRSS_DATABASE_URL` | `postgresql+psycopg://hamrss:hamrss@localhost/hamrss` | PostgreSQL connection URL |
 | `HAMRSS_SCRAPE_INTERVAL_HOURS` | `6` | Hours between scraping cycles |
-| `HAMRSS_ENABLED_DRIVERS` | `hamrss.driver.hro,hamrss.driver.mtc,hamrss.driver.rlelectronics` | Comma-separated driver list |
+| `HAMRSS_ENABLED_DRIVERS` | `hamrss.driver.hro,hamrss.driver.mtc,hamrss.driver.randl` | Comma-separated driver list |
 | `HAMRSS_PLAYWRIGHT_SERVER_URL` | `ws://127.0.0.1:3000/` | Playwright server URL (for HRO driver) |
 | `HAMRSS_LOG_LEVEL` | `INFO` | Logging level |
 | `HAMRSS_MAX_CONCURRENT_DRIVERS` | `3` | Max concurrent driver processes |

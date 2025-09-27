@@ -3,7 +3,8 @@ from pydantic import BaseModel
 
 class Product(BaseModel):
     url: str
-    description: str
+    title: str
+    description: str | None = None
     manufacturer: str | None = None
     model: str | None = None
     product_id: str | None = None

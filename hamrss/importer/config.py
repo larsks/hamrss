@@ -1,7 +1,7 @@
 """Configuration management using pydantic-settings."""
 
 import logging
-from pydantic import Field, field_validator
+from pydantic import Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 from ..driver.discovery import get_available_driver_modules
@@ -53,7 +53,7 @@ class ServerSettings(BaseSettings):
                 logger.warning("Driver discovery failed, using fallback drivers")
                 return [
                     "hamrss.driver.mtc",
-                    "hamrss.driver.rlelectronics",
+                    "hamrss.driver.randl",
                     "hamrss.driver.hro",
                     "hamrss.driver.qrz"
                 ]

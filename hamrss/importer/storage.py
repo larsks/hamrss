@@ -158,6 +158,7 @@ class StorageManager:
             # Convert ProductModel to database Product
             product_data = {
                 "url": product.url,
+                "title": product.title,
                 "description": product.description,
                 "manufacturer": product.manufacturer,
                 "model": product.model,
@@ -180,6 +181,7 @@ class StorageManager:
             stmt = stmt.on_conflict_do_update(
                 index_elements=["url", "driver_name"],
                 set_={
+                    "title": stmt.excluded.title,
                     "description": stmt.excluded.description,
                     "manufacturer": stmt.excluded.manufacturer,
                     "model": stmt.excluded.model,

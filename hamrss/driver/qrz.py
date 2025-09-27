@@ -159,9 +159,14 @@ class Catalog:
                 product_data = {}
 
                 # Map RSS entry fields to Product model
-                # entry.title becomes Product.description as requested
+                # entry.title becomes Product.title as requested
                 if hasattr(entry, "title") and entry.title:
-                    product_data["description"] = entry.title.strip()
+                    title = entry.title.strip()
+                    product_data["title"] = title
+
+                    # If available, try to extract summary as description
+                    if hasattr(entry, "summary") and entry.summary:
+                        product_data["description"] = entry.summary.strip()
 
                 # entry.link becomes Product.url as requested
                 if hasattr(entry, "link") and entry.link:
@@ -172,8 +177,8 @@ class Catalog:
                     product_data["date_added"] = entry.published
 
                 # Try to extract manufacturer and model from title if possible
-                if "description" in product_data:
-                    title = product_data["description"]
+                if "title" in product_data:
+                    title = product_data["title"]
                     # Basic pattern matching for common formats like "Brand Model - Description"
                     if " - " in title:
                         parts = title.split(" - ", 1)
@@ -182,6 +187,9 @@ class Catalog:
                         if len(brand_parts) >= 2:
                             product_data["manufacturer"] = brand_parts[0]
                             product_data["model"] = " ".join(brand_parts[1:])
+                        # Use the part after " - " as additional description if we don't have one
+                        if len(parts) > 1 and not product_data.get("description"):
+                            product_data["description"] = parts[1].strip()
                     else:
                         # Try to parse simple "Brand Model" format without dash
                         title_parts = title.split()
@@ -190,7 +198,7 @@ class Catalog:
                             product_data["model"] = " ".join(title_parts[1:])
 
                 # Only create Product if we have the required fields
-                if "description" in product_data and "url" in product_data:
+                if "title" in product_data and "url" in product_data:
                     product = Product(**product_data)
                     products.append(product)
 

@@ -1,6 +1,6 @@
 """Ham Radio Outlet catalog scraper driver."""
 
-from playwright.sync_api import Page, Browser
+from playwright.sync_api import Page
 import re
 import time
 from enum import Enum
@@ -37,17 +37,31 @@ class Catalog:
                 product_data = {}
 
                 # Extract manufacturer and model from the h4 elements
+                manufacturer = None
+                model = None
                 h4_elements = container.query_selector_all(".prod-caption h4")
                 if len(h4_elements) >= 2:
                     manufacturer_elem = h4_elements[0].query_selector("strong")
                     if manufacturer_elem:
-                        product_data["manufacturer"] = (
-                            manufacturer_elem.inner_text().strip()
-                        )
+                        manufacturer = manufacturer_elem.inner_text().strip()
+                        product_data["manufacturer"] = manufacturer
 
                     model_elem = h4_elements[1]
                     if model_elem:
-                        product_data["model"] = model_elem.inner_text().strip()
+                        model = model_elem.inner_text().strip()
+                        product_data["model"] = model
+
+                # Create title from manufacturer and model
+                title_parts = []
+                if manufacturer:
+                    title_parts.append(manufacturer)
+                if model:
+                    title_parts.append(model)
+                if title_parts:
+                    product_data["title"] = " ".join(title_parts)
+                else:
+                    # Fallback if no manufacturer/model found
+                    product_data["title"] = "Ham Radio Equipment"
 
                 # Extract product URL from the first link
                 link_elem = container.query_selector(".prod-caption a")
@@ -116,7 +130,7 @@ class Catalog:
                     else:
                         product_data["image_url"] = src
 
-                if product_data:  # Only add if we extracted some data
+                if product_data.get("title"):  # Only add if we have a title (required field)
                     product = Product(**product_data)
                     products.append(product)
 

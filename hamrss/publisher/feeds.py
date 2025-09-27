@@ -67,18 +67,18 @@ class RSSFeedGenerator:
                 else product.driver_name
             )
 
-        # Create title from driver prefix, description and price
+        # Create title from driver prefix, product title and price
         title_parts = []
 
         # Add driver prefix
         if driver_short:
             prefix = f"[{driver_short}]"
-            if product.description:
-                title_parts.append(f"{prefix} {product.description}")
+            if product.title:
+                title_parts.append(f"{prefix} {product.title}")
             else:
                 title_parts.append(f"{prefix} Ham Radio Equipment")
-        elif product.description:
-            title_parts.append(product.description)
+        elif product.title:
+            title_parts.append(product.title)
         else:
             title_parts.append("Ham Radio Equipment")
 
@@ -124,6 +124,7 @@ class RSSFeedGenerator:
             if value:
                 lines.append(f"{label}: {value}")
 
+        add_line("Title", product.title)
         add_line("Description", product.description)
         add_line("Manufacturer", product.manufacturer)
         add_line("Model", product.model)

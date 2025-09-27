@@ -1,6 +1,5 @@
 """CLI interface for Ham Radio catalog scraper."""
 
-from playwright.sync_api import sync_playwright
 import json
 import typer
 import importlib
@@ -8,7 +7,6 @@ import importlib
 from . import PlaywrightServer
 from . import protocol
 
-from typing import cast
 
 app = typer.Typer(help="Ham Radio Outlet catalog scraper")
 

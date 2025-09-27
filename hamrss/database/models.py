@@ -1,6 +1,5 @@
 """Database models for the ham radio scraper server."""
 
-from datetime import datetime, timezone
 from sqlalchemy import (
     Column,
     Integer,
@@ -26,7 +25,8 @@ class Product(Base):
 
     # Product information
     url = Column(String(500), nullable=False)
-    description = Column(Text, nullable=False)
+    title = Column(Text, nullable=False)
+    description = Column(Text, nullable=True)
     manufacturer = Column(String(100), nullable=True)
     model = Column(String(100), nullable=True)
     product_id = Column(String(100), nullable=True)

@@ -50,12 +50,13 @@ class Catalog:
 
                     # Extract title and try to parse manufacturer/model
                     title = title_link.get_text().strip()
-                    product_data["description"] = title
 
                     # Try to parse manufacturer and model from title
                     # Common patterns: "U17582 Used ACOM A1200S..." or "Certified Pre-Loved Flex 6600..."
+                    manufacturer = None
+                    model = None
                     if title:
-                        # Remove used item number prefix if present
+                        # Remove used item number prefix if present to get clean title
                         title_cleaned = re.sub(
                             r"^U\d+\s+Used\s+", "", title, flags=re.IGNORECASE
                         )
@@ -66,13 +67,21 @@ class Catalog:
                             flags=re.IGNORECASE,
                         )
 
+                        # Set the cleaned title as our product title
+                        product_data["title"] = title_cleaned if title_cleaned else title
+
+                        # Also keep the full original title as description for more detail
+                        product_data["description"] = title
+
                         # Split on first space to get potential manufacturer
                         parts = title_cleaned.split()
                         if len(parts) >= 2:
-                            product_data["manufacturer"] = parts[0]
+                            manufacturer = parts[0]
+                            product_data["manufacturer"] = manufacturer
                             # Take next 1-2 words as model
                             model_parts = parts[1:3]
-                            product_data["model"] = " ".join(model_parts)
+                            model = " ".join(model_parts)
+                            product_data["model"] = model
 
                 # Extract price
                 price_elem = item.select_one(".ProductPriceRating em")
@@ -94,7 +103,7 @@ class Catalog:
                         product_id = cart_href.split("product_id=")[1].split("&")[0]
                         product_data["product_id"] = product_id
 
-                if product_data:  # Only add if we extracted some data
+                if product_data.get("title"):  # Only add if we have a title (required field)
                     product = Product(**product_data)
                     products.append(product)
 

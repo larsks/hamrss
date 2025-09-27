@@ -58,111 +58,155 @@ class Catalog:
         return list(self._categories_cache.keys())
 
     def _extract_products_from_html(self, html_content: str) -> list[Product]:
-        """Extract product information from HTML content."""
+        """Extract product information from HTML content.
+
+        The HTML structure is malformed - all products are nested within a single
+        large DT element. We need to find all bold elements (titles) and extract
+        their associated content.
+        """
         products = []
         soup = BeautifulSoup(html_content, "html.parser")
 
-        # Find the definition list containing all listings - try both cases
+        # Find the main DL element
         dl_element = soup.find("dl") or soup.find("DL")
         if not dl_element:
             return products
 
-        # Get all DT and DD elements
-        all_dt = dl_element.find_all("dt") + dl_element.find_all("DT")
-        all_dd = dl_element.find_all("dd") + dl_element.find_all("DD")
+        # The HTML structure is malformed - all products are in nested bold elements
+        # Find all bold elements which contain the titles
+        bold_elements = dl_element.find_all("b") + dl_element.find_all("B")
 
-        # Group DD elements with their corresponding DT
-        # Since BeautifulSoup might nest everything, we need a different approach
-        dt_index = 0
-
-        for dt in all_dt:
+        for bold_element in bold_elements:
             try:
                 product_data = {}
 
-                # Extract title from DT element - look for bold text
-                title_element = dt.find("b") or dt.find("B")
-                if title_element:
-                    title = title_element.get_text().strip()
-                    product_data["description"] = title
+                # Extract title from bold element
+                title = bold_element.get_text().strip()
+                if not title:
+                    continue
 
-                    # Try to extract manufacturer and model from title
-                    title_parts = title.split()
-                    if len(title_parts) >= 2:
-                        # First word is often the manufacturer
-                        potential_manufacturer = title_parts[0]
-                        if potential_manufacturer[0].isupper():
+                product_data["title"] = title
+
+                # Try to extract manufacturer and model from title
+                title_parts = title.split()
+                if len(title_parts) >= 2:
+                    # Skip generic prefixes
+                    start_idx = 0
+                    if title_parts[0].upper() in ['FOR', 'FS:', 'SALE', 'NEW', 'USED']:
+                        start_idx = 1
+
+                    if start_idx < len(title_parts):
+                        # First meaningful word is often the manufacturer
+                        potential_manufacturer = title_parts[start_idx]
+                        if potential_manufacturer[0].isupper() and not potential_manufacturer.startswith("-"):
                             product_data["manufacturer"] = potential_manufacturer
                             # Next 1-2 words could be the model
-                            if len(title_parts) >= 2:
-                                model_parts = title_parts[1:3]
+                            if start_idx + 1 < len(title_parts):
+                                model_parts = title_parts[start_idx + 1:start_idx + 3]
                                 product_data["model"] = " ".join(model_parts)
 
-                # Look for photo/detail link in DT
-                detail_link = dt.find("a", href=re.compile(r"view_ad\.php"))
+                # Find the containing structure to get associated links and content
+                container = bold_element.find_parent(['dt', 'dd', 'DT', 'DD'])
+                if not container:
+                    container = bold_element.find_parent()
+
+                # Look for photo/detail link near the bold element
+                detail_link = None
+                current = bold_element
+                for _ in range(3):  # Search nearby elements
+                    if current:
+                        link = current.find_next("a", href=re.compile(r"view_ad\.php"))
+                        if link:
+                            detail_link = link
+                            break
+                        current = current.find_next_sibling()
+                    else:
+                        break
+
                 if detail_link:
                     href = detail_link.get("href")
                     product_data["url"] = urljoin(self.base_url, href)
 
-                # Find DD elements that belong to this DT
-                # Since the structure might be nested, look for DD elements within this DT
-                related_dd = dt.find_all("dd") + dt.find_all("DD")
+                    # Extract product ID from URL
+                    counter_match = re.search(r"counter=(\d+)", href)
+                    if counter_match:
+                        product_data["product_id"] = counter_match.group(1)
 
-                # If no DD found within DT, try to find by position
-                if not related_dd and dt_index < len(all_dt):
-                    # Estimate which DD elements belong to this DT
-                    # Usually there are 3 DD elements per DT (description, metadata, actions)
-                    start_idx = dt_index * 3
-                    end_idx = min(start_idx + 3, len(all_dd))
-                    related_dd = all_dd[start_idx:end_idx]
+                # Find the content that follows this title
+                # Look for the next DD element after this bold element
+                description_dd = None
+                current = bold_element
 
-                # Process DD elements for this listing
-                all_dd_text = ""
-                for dd in related_dd:
-                    dd_text = dd.get_text().strip()
-                    all_dd_text += " " + dd_text
+                # Navigate through the DOM to find the description DD
+                for _ in range(5):
+                    current = current.find_next_sibling(['dd', 'DD'])
+                    if current:
+                        text = current.get_text().strip()
+                        # Skip if this looks like metadata or action links
+                        if not text.startswith(("Listing #", "Click to")) and len(text) > 10:
+                            description_dd = current
+                            break
+                    else:
+                        break
 
-                    # Look for contact link to extract listing number
-                    contact_link = dd.find("a", href=re.compile(r"contact\.php"))
-                    if contact_link:
-                        href = contact_link.get("href")
-                        counter_match = re.search(r"counter=(\d+)", href)
-                        if counter_match:
-                            product_data["product_id"] = counter_match.group(1)
+                # Extract description and other details from the description DD
+                if description_dd:
+                    desc_text = description_dd.get_text().strip()
 
-                # Parse the combined DD content for details
-                if all_dd_text:
-                    # Look for price patterns
-                    price_pattern = r"\$[\d,]+(?:\.\d{2})?(?:\s+(?:Shipped|OBO|Firm))?|Free|SOLD"
-                    price_match = re.search(price_pattern, all_dd_text, re.IGNORECASE)
+                    # Look for price patterns first
+                    price_pattern = r"\$[\d,]+(?:\.\d{2})?(?:\s+(?:shipped|OBO|Firm|plus))?|Free|SOLD"
+                    price_match = re.search(price_pattern, desc_text, re.IGNORECASE)
                     if price_match:
                         product_data["price"] = price_match.group().strip()
 
+                    # Clean description by removing price and payment info
+                    desc_clean = re.sub(price_pattern, "", desc_text, flags=re.IGNORECASE)
+                    desc_clean = re.sub(r'\b(paypal|check|money order|payment)\b', "", desc_clean, flags=re.IGNORECASE)
+                    desc_clean = re.sub(r'\s+', ' ', desc_clean).strip()
+
+                    # Take first sentence or up to 200 chars as description
+                    if desc_clean:
+                        # Split on periods and take first substantial sentence
+                        sentences = desc_clean.split('.')
+                        if sentences and len(sentences[0]) > 20:
+                            product_data["description"] = sentences[0].strip()
+                        elif len(desc_clean) <= 200:
+                            product_data["description"] = desc_clean
+                        else:
+                            product_data["description"] = desc_clean[:200] + "..."
+
+                # Look for metadata in subsequent DD elements
+                metadata_dd = None
+                if description_dd:
+                    metadata_dd = description_dd.find_next_sibling(['dd', 'DD'])
+
+                if metadata_dd:
+                    metadata_text = metadata_dd.get_text()
+
                     # Look for submission date
                     date_pattern = r"Submitted on (\d{2}/\d{2}/\d{2})"
-                    date_match = re.search(date_pattern, all_dd_text)
+                    date_match = re.search(date_pattern, metadata_text)
                     if date_match:
                         product_data["date_added"] = date_match.group(1)
 
                     # Look for callsign
                     callsign_pattern = r"by Callsign ([A-Z0-9]+)"
-                    callsign_match = re.search(callsign_pattern, all_dd_text)
+                    callsign_match = re.search(callsign_pattern, metadata_text)
                     if callsign_match:
-                        # Store callsign in location field for now
-                        product_data["location"] = f"Seller: {callsign_match.group(1)}"
+                        callsign = callsign_match.group(1)
+                        product_data["location"] = f"Seller: {callsign}"
 
                 # Set default URL if none found
                 if "url" not in product_data:
-                    product_data["url"] = f"{self.base_url}/index.php"
+                    product_data["url"] = f"{self.base_url}/"
 
-                # Only add if we have meaningful data
-                if product_data.get("description"):
+                # Only add if we have a title (required field)
+                if product_data.get("title"):
                     product = Product(**product_data)
                     products.append(product)
 
-                dt_index += 1
-
             except Exception as e:
-                print(f"Error extracting product: {e}")
+                print(f"Error extracting product '{title}': {e}")
                 continue
 
         return products
