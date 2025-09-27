@@ -18,8 +18,8 @@ class QRZSettings(BaseSettings):
         case_sensitive=False,
     )
 
-    username: str = Field(description="QRZ username for authentication")
-    password: str = Field(description="QRZ password for authentication")
+    username: str = Field(default="", description="QRZ username for authentication")
+    password: str = Field(default="", description="QRZ password for authentication")
 
 
 class Category(str, Enum):
@@ -41,6 +41,11 @@ class Catalog:
         """Authenticate with QRZ login form."""
         if self._authenticated:
             return True
+
+        # Check if credentials are provided
+        if not self.settings.username or not self.settings.password:
+            print("QRZ credentials not provided - authentication skipped")
+            return False
 
         try:
             # First, get the login page to establish a session
@@ -186,12 +191,12 @@ class Catalog:
         """Get available categories."""
         return [x.value for x in Category]
 
-    def get_items(self, category: str) -> list[Product]:
+    def get_items(self, category_name: str) -> list[Product]:
         """Get items from specified category."""
-        if category == Category.ham_radio_gear_for_sale:
+        if category_name == Category.ham_radio_gear_for_sale:
             return self.get_ham_radio_gear_for_sale()
         else:
-            raise ValueError(f"Unknown category: {category}")
+            raise ValueError(f"Unknown category: {category_name}")
 
     def get_ham_radio_gear_for_sale(self) -> list[Product]:
         """Fetch all ham radio gear for sale from QRZ RSS feed."""

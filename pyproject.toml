@@ -1,6 +1,6 @@
 [project]
 name = "hamrssv2"
-version = "0.1.0"
+version = "1.0.0"
 description = "Add your description here"
 readme = "README.md"
 requires-python = ">=3.13"
@@ -18,6 +18,7 @@ dependencies = [
   "fastapi>=0.104.0",
   "uvicorn>=0.24.0",
   "feedgen>=1.0.0",
+  "feedparser>=6.0.0",
 ]
 
 [tool.setuptools]
@@ -30,3 +31,9 @@ package = true
 hamrss = "hamrss.main:app"
 hamrss-importer = "hamrss.importer.main:run_server"
 hamrss-publisher = "hamrss.publisher.main:run_server"
+
+[project.entry-points."hamrss.drivers"]
+mtc = "hamrss.driver.mtc"
+hro = "hamrss.driver.hro"
+rlelectronics = "hamrss.driver.rlelectronics"
+qrz = "hamrss.driver.qrz"

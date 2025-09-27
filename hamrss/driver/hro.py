@@ -222,7 +222,7 @@ class Catalog:
             "https://www.hamradio.com/consignment.cfm", "Ham Radio consignment items"
         )
 
-    def get_categories(self):
+    def get_categories(self) -> list[str]:
         return [x.value for x in Category]
 
     def get_items(self, category_name: str) -> list[Product]:

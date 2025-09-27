@@ -1,7 +1,12 @@
 """Configuration management using pydantic-settings."""
 
+import logging
 from pydantic import Field, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
+
+from ..driver.discovery import get_available_driver_modules
+
+logger = logging.getLogger(__name__)
 
 
 class ServerSettings(BaseSettings):
@@ -28,13 +33,30 @@ class ServerSettings(BaseSettings):
     )
 
     enabled_drivers: str = Field(
-        default="hamrss.driver.mtc,hamrss.driver.rlelectronics,hamrss.driver.hro,hamrss.driver.qrz",
-        description="Comma-separated list of driver module names to use for scraping",
+        default="",
+        description="Comma-separated list of driver module names to use for scraping. If empty, uses automatic discovery via entry points.",
     )
 
     def get_enabled_drivers(self) -> list[str]:
-        """Parse enabled drivers into a list."""
-        return [s.strip() for s in self.enabled_drivers.split(",") if s.strip()]
+        """Parse enabled drivers into a list, using automatic discovery if empty."""
+        if self.enabled_drivers.strip():
+            # Use explicitly configured drivers
+            return [s.strip() for s in self.enabled_drivers.split(",") if s.strip()]
+        else:
+            # Use automatic discovery
+            discovered = get_available_driver_modules()
+            if discovered:
+                logger.info(f"Auto-discovered drivers: {discovered}")
+                return discovered
+            else:
+                # Fallback to hardcoded list if discovery fails
+                logger.warning("Driver discovery failed, using fallback drivers")
+                return [
+                    "hamrss.driver.mtc",
+                    "hamrss.driver.rlelectronics",
+                    "hamrss.driver.hro",
+                    "hamrss.driver.qrz"
+                ]
 
     # Playwright configuration
     playwright_server_url: str = Field(

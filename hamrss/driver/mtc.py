@@ -177,12 +177,12 @@ class Catalog:
         """Get available categories."""
         return [x.value for x in Category]
 
-    def get_items(self, category: str) -> list[Product]:
+    def get_items(self, category_name: str) -> list[Product]:
         """Get items from specified category."""
-        if category == Category.used:
+        if category_name == Category.used:
             return self.get_used_items()
         else:
-            raise ValueError(f"Unknown category: {category}")
+            raise ValueError(f"Unknown category: {category_name}")
 
     def get_used_items(self) -> list[Product]:
         """Fetch all used equipment from MTC Radio."""
