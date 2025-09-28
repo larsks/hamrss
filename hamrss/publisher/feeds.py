@@ -44,6 +44,9 @@ class RSSFeedGenerator:
             latest_update = max(
                 product.last_seen for product in products if product.last_seen
             )
+            # Ensure timezone awareness
+            if latest_update.tzinfo is None:
+                latest_update = latest_update.replace(tzinfo=timezone.utc)
             fg.lastBuildDate(latest_update)
         else:
             fg.lastBuildDate(datetime.now(timezone.utc))
@@ -99,9 +102,15 @@ class RSSFeedGenerator:
 
         # Publication date
         if product.first_seen:
-            fe.pubDate(product.first_seen)
+            pub_date = product.first_seen
+            if pub_date.tzinfo is None:
+                pub_date = pub_date.replace(tzinfo=timezone.utc)
+            fe.pubDate(pub_date)
         elif product.scraped_at:
-            fe.pubDate(product.scraped_at)
+            pub_date = product.scraped_at
+            if pub_date.tzinfo is None:
+                pub_date = pub_date.replace(tzinfo=timezone.utc)
+            fe.pubDate(pub_date)
 
         # Categories
         categories = []
