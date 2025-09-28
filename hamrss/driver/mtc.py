@@ -6,7 +6,6 @@ import re
 from enum import Enum
 
 from .base import BaseCatalog, EnumCatalogMixin
-from .pagination import MTCPaginationHandler
 from ..model import Product
 
 
@@ -24,7 +23,6 @@ class Catalog(EnumCatalogMixin, BaseCatalog):
     def __init__(self, playwright_server=None):
         super().__init__(playwright_server)
         self.base_url = "https://www.mtcradio.com"
-        self.pagination = MTCPaginationHandler()
 
     def _extract_products_from_html(self, html_content: str) -> list[Product]:
         """Extract product information from HTML content."""
@@ -111,6 +109,40 @@ class Catalog(EnumCatalogMixin, BaseCatalog):
 
         return products
 
+    def _get_total_pages(self, html_content: str) -> int:
+        """Extract the total number of pages from the pagination."""
+        try:
+            soup = BeautifulSoup(html_content, "html.parser")
+            # Look for pagination list
+            paging_list = soup.select_one(".CategoryPagination .PagingList")
+            if paging_list:
+                # Get all page links
+                page_links = paging_list.find_all("li")
+                max_page = 1
+
+                for li in page_links:
+                    link = li.find("a")
+                    if link:
+                        href = link.get("href")
+                        if href and "page=" in href:
+                            # Extract page number from URL
+                            page_match = re.search(r"page=(\d+)", href)
+                            if page_match:
+                                page_num = int(page_match.group(1))
+                                max_page = max(max_page, page_num)
+
+                return max_page
+
+        except Exception as e:
+            self.logger.error(f"Error getting total pages: {e}")
+
+        return 1
+
+    def _build_page_url(self, base_url: str, page_num: int) -> str:
+        """Build URL for MTC pagination."""
+        if page_num == 1:
+            return base_url
+        return f"{base_url}?page={page_num}"
 
     def _scrape_catalog(self, url: str, catalog_name: str, max_items: int | None = None) -> list[Product]:
         """Generic method to scrape MTC catalog with pagination."""
@@ -123,7 +155,7 @@ class Catalog(EnumCatalogMixin, BaseCatalog):
             response.raise_for_status()
 
             # Get total number of pages
-            total_pages = self.pagination.get_total_pages(response.text)
+            total_pages = self._get_total_pages(response.text)
             self.logger.info(f"Found {total_pages} pages to scrape")
 
             # Scrape each page
@@ -135,7 +167,7 @@ class Catalog(EnumCatalogMixin, BaseCatalog):
                     page_url = url
                     page_content = response.text
                 else:
-                    page_url = self.pagination.build_page_url(url, page_num)
+                    page_url = self._build_page_url(url, page_num)
                     page_response = requests.get(page_url)
                     page_response.raise_for_status()
                     page_content = page_response.text

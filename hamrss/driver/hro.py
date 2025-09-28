@@ -1,11 +1,11 @@
 """Ham Radio Outlet catalog scraper driver."""
 
 from playwright.sync_api import Page
+import re
 import time
 from enum import Enum
 
 from .base import BaseCatalog, EnumCatalogMixin
-from .pagination import HROPaginationHandler
 from ..model import Product
 
 
@@ -25,7 +25,6 @@ class Catalog(EnumCatalogMixin, BaseCatalog):
     def __init__(self, playwright_server):
         super().__init__(playwright_server)
         self.base_url = "https://www.hamradio.com"
-        self.pagination = HROPaginationHandler()
 
     def _extract_products_from_page(self, page: Page) -> list[Product]:
         """Extract product information from the current page."""
@@ -141,6 +140,21 @@ class Catalog(EnumCatalogMixin, BaseCatalog):
 
         return products
 
+    def _get_total_pages(self, page: Page) -> int:
+        """Extract total page count from HRO page."""
+        try:
+            # Look for text like "of 6" after the select element
+            page_info = page.query_selector('select[name="jumpPage"] + span')
+            if page_info:
+                text = page_info.inner_text().strip()
+                # Extract number from text like " of 6"
+                match = re.search(r"of (\d+)", text)
+                if match:
+                    return int(match.group(1))
+        except Exception as e:
+            self.logger.error(f"Error getting total pages: {e}")
+
+        return 1
 
     def _scrape_catalog(self, url: str, catalog_name: str, max_items: int | None = None) -> list[Product]:
         """Generic method to scrape any HRO catalog with pagination."""
@@ -157,7 +171,7 @@ class Catalog(EnumCatalogMixin, BaseCatalog):
                 page.wait_for_selector('select[name="jumpPage"]', timeout=10000)
 
                 # Get total number of pages
-                total_pages = self.pagination.get_total_pages(page)
+                total_pages = self._get_total_pages(page)
                 self.logger.info(f"Found {total_pages} pages to scrape")
 
                 # Scrape each page
