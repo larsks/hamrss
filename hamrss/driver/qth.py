@@ -158,17 +158,26 @@ class Catalog:
                 if description_dd:
                     desc_text = description_dd.get_text().strip()
 
-                    # Take first sentence or up to 200 chars as description
-                    # No price extraction - QTH listings are freeform text that confuses parsing
+                    # Take full description text - QTH listings are freeform text
                     if desc_text:
-                        # Split on periods and take first substantial sentence
-                        sentences = desc_text.split(".")
-                        if sentences and len(sentences[0]) > 20:
-                            product_data["description"] = sentences[0].strip()
-                        elif len(desc_text) <= 200:
-                            product_data["description"] = desc_text
+                        # The DD element may contain multiple listings concatenated
+                        # Extract only the description for this specific item by looking for boundaries
+
+                        # Split on "Listing #" to separate individual items
+                        if "Listing #" in desc_text:
+                            # Find the first "Listing #" which marks the end of our item's description
+                            listing_index = desc_text.find("Listing #")
+                            if listing_index > 0:
+                                desc_text = desc_text[:listing_index].strip()
+
+                        # Normalize whitespace but preserve full content
+                        desc_clean = re.sub(r'\s+', ' ', desc_text).strip()
+
+                        # Use a reasonable limit for QTH descriptions (800 chars)
+                        if len(desc_clean) <= 800:
+                            product_data["description"] = desc_clean
                         else:
-                            product_data["description"] = desc_text[:200] + "..."
+                            product_data["description"] = desc_clean[:800] + "..."
 
                 # Look for metadata in subsequent DD elements
                 metadata_dd = None
