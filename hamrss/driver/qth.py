@@ -158,34 +158,17 @@ class Catalog:
                 if description_dd:
                     desc_text = description_dd.get_text().strip()
 
-                    # Look for price patterns first
-                    price_pattern = r"\$[\d,]+(?:\.\d{2})?(?:\s+(?:shipped|OBO|Firm|plus))?|Free|SOLD"
-                    price_match = re.search(price_pattern, desc_text, re.IGNORECASE)
-                    if price_match:
-                        product_data["price"] = price_match.group().strip()
-
-                    # Clean description by removing price and payment info
-                    desc_clean = re.sub(
-                        price_pattern, "", desc_text, flags=re.IGNORECASE
-                    )
-                    desc_clean = re.sub(
-                        r"\b(paypal|check|money order|payment)\b",
-                        "",
-                        desc_clean,
-                        flags=re.IGNORECASE,
-                    )
-                    desc_clean = re.sub(r"\s+", " ", desc_clean).strip()
-
                     # Take first sentence or up to 200 chars as description
-                    if desc_clean:
+                    # No price extraction - QTH listings are freeform text that confuses parsing
+                    if desc_text:
                         # Split on periods and take first substantial sentence
-                        sentences = desc_clean.split(".")
+                        sentences = desc_text.split(".")
                         if sentences and len(sentences[0]) > 20:
                             product_data["description"] = sentences[0].strip()
-                        elif len(desc_clean) <= 200:
-                            product_data["description"] = desc_clean
+                        elif len(desc_text) <= 200:
+                            product_data["description"] = desc_text
                         else:
-                            product_data["description"] = desc_clean[:200] + "..."
+                            product_data["description"] = desc_text[:200] + "..."
 
                 # Look for metadata in subsequent DD elements
                 metadata_dd = None
