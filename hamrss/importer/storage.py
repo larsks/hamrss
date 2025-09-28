@@ -239,7 +239,7 @@ class StorageManager:
             .where(
                 and_(
                     Product.scrape_run_id != scrape_run_id,
-                    Product.is_active == True,
+                    Product.is_active,
                 )
             )
             .values(is_active=False)
@@ -287,7 +287,7 @@ class StorageManager:
         """Get active product counts by driver."""
         result = self.session.execute(
             select(Product.driver_name, Product.category).where(
-                Product.is_active == True
+                Product.is_active
             )
         )
 

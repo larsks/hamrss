@@ -133,7 +133,7 @@ class ScraperScheduler:
             return {"status": "not_started"}
 
         jobs = self.scheduler.get_jobs()
-        scrape_job = jobs[0] if jobs else None
+        jobs[0] if jobs else None
 
         status = {
             "status": "running" if self.scheduler.running else "stopped",

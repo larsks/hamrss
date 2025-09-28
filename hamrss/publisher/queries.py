@@ -19,7 +19,7 @@ class FeedQueries:
 
     def _get_driver_mappings(self) -> dict[str, str]:
         """Build mapping from short driver names to full driver names from database."""
-        query = select(Product.driver_name).where(Product.is_active == True).distinct()
+        query = select(Product.driver_name).where(Product.is_active).distinct()
         full_names = self.session.execute(query).scalars().all()
 
         mappings = {}
@@ -34,7 +34,7 @@ class FeedQueries:
         """Get all active items from all drivers."""
         query = (
             select(Product)
-            .where(Product.is_active == True)
+            .where(Product.is_active)
             .order_by(desc(Product.last_seen))
             .limit(limit)
         )
@@ -52,7 +52,7 @@ class FeedQueries:
 
         query = (
             select(Product)
-            .where(and_(Product.is_active == True, Product.driver_name == driver_name))
+            .where(and_(Product.is_active, Product.driver_name == driver_name))
             .order_by(desc(Product.last_seen))
             .limit(limit)
         )
@@ -72,7 +72,7 @@ class FeedQueries:
             select(Product)
             .where(
                 and_(
-                    Product.is_active == True,
+                    Product.is_active,
                     Product.driver_name == driver_name,
                     Product.category == category,
                 )
@@ -96,7 +96,7 @@ class FeedQueries:
 
         query = (
             select(Product.category)
-            .where(and_(Product.is_active == True, Product.driver_name == driver_name))
+            .where(and_(Product.is_active, Product.driver_name == driver_name))
             .distinct()
         )
 
@@ -108,7 +108,7 @@ class FeedQueries:
         stats = {"total_active_products": 0, "drivers": {}, "categories": {}}
 
         # Total active products
-        total_query = select(Product).where(Product.is_active == True)
+        total_query = select(Product).where(Product.is_active)
         stats["total_active_products"] = len(
             list(self.session.execute(total_query).scalars().all())
         )
@@ -117,7 +117,7 @@ class FeedQueries:
         driver_mappings = self._get_driver_mappings()
         for short_name, full_name in driver_mappings.items():
             driver_query = select(Product).where(
-                and_(Product.is_active == True, Product.driver_name == full_name)
+                and_(Product.is_active, Product.driver_name == full_name)
             )
             count = len(list(self.session.execute(driver_query).scalars().all()))
             if count > 0:

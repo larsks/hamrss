@@ -5,6 +5,8 @@ from bs4 import BeautifulSoup
 import re
 from enum import Enum
 
+from .base import BaseCatalog, EnumCatalogMixin
+from .pagination import MTCPaginationHandler
 from ..model import Product
 
 
@@ -14,12 +16,15 @@ class Category(str, Enum):
     used = "used"
 
 
-class Catalog:
+class Catalog(EnumCatalogMixin, BaseCatalog):
     """MTC Radio catalog scraper for used equipment."""
 
+    Category = Category
+
     def __init__(self, playwright_server=None):
-        # Ignore the playwright_server parameter as we use requests instead
-        pass
+        super().__init__(playwright_server)
+        self.base_url = "https://www.mtcradio.com"
+        self.pagination = MTCPaginationHandler()
 
     def _extract_products_from_html(self, html_content: str) -> list[Product]:
         """Extract product information from HTML content."""
@@ -43,18 +48,12 @@ class Catalog:
                 if title_link:
                     href = title_link.get("href")
                     # Convert relative URL to fully qualified URL
-                    if href and not href.startswith("http"):
-                        product_data["url"] = f"https://www.mtcradio.com{href}"
-                    else:
-                        product_data["url"] = href
+                    product_data["url"] = self._normalize_url(href, self.base_url)
 
                     # Extract title and try to parse manufacturer/model
                     title = title_link.get_text().strip()
 
                     # Try to parse manufacturer and model from title
-                    # Common patterns: "U17582 Used ACOM A1200S..." or "Certified Pre-Loved Flex 6600..."
-                    manufacturer = None
-                    model = None
                     if title:
                         # Remove used item number prefix if present to get clean title
                         title_cleaned = re.sub(
@@ -72,27 +71,25 @@ class Catalog:
                             title_cleaned if title_cleaned else title
                         )
 
-                        # Split on first space to get potential manufacturer
-                        parts = title_cleaned.split()
-                        if len(parts) >= 2:
-                            manufacturer = parts[0]
+                        # Extract manufacturer and model using base class method
+                        manufacturer, model = self._extract_manufacturer_model_from_title(title_cleaned)
+                        if manufacturer:
                             product_data["manufacturer"] = manufacturer
-                            # Take next 1-2 words as model
-                            model_parts = parts[1:3]
-                            model = " ".join(model_parts)
+                        if model:
                             product_data["model"] = model
 
                 # Extract price
                 price_elem = item.select_one(".ProductPriceRating em")
                 if price_elem:
-                    product_data["price"] = price_elem.get_text().strip()
+                    price = self._extract_price(price_elem.get_text())
+                    if price:
+                        product_data["price"] = price
 
                 # Extract image URL
                 img_elem = item.select_one(".ProductImage a img")
                 if img_elem:
                     src = img_elem.get("src")
-                    # Image URLs are already fully qualified
-                    product_data["image_url"] = src
+                    product_data["image_url"] = self._normalize_url(src, self.base_url)
 
                 # Extract product ID from URL or cart action
                 cart_link = item.select_one(".ProductActionAdd a")
@@ -109,39 +106,11 @@ class Catalog:
                     products.append(product)
 
             except Exception as e:
-                print(f"Error extracting product: {e}")
+                self.logger.error(f"Error extracting product: {e}")
                 continue
 
         return products
 
-    def _get_total_pages(self, html_content: str) -> int:
-        """Extract the total number of pages from the pagination."""
-        try:
-            soup = BeautifulSoup(html_content, "html.parser")
-            # Look for pagination list
-            paging_list = soup.select_one(".CategoryPagination .PagingList")
-            if paging_list:
-                # Get all page links
-                page_links = paging_list.find_all("li")
-                max_page = 1
-
-                for li in page_links:
-                    link = li.find("a")
-                    if link:
-                        href = link.get("href")
-                        if href and "page=" in href:
-                            # Extract page number from URL
-                            page_match = re.search(r"page=(\d+)", href)
-                            if page_match:
-                                page_num = int(page_match.group(1))
-                                max_page = max(max_page, page_num)
-
-                return max_page
-
-        except Exception as e:
-            print(f"Error getting total pages: {e}")
-
-        return 1
 
     def _scrape_catalog(self, url: str, catalog_name: str, max_items: int | None = None) -> list[Product]:
         """Generic method to scrape MTC catalog with pagination."""
@@ -149,24 +118,24 @@ class Catalog:
 
         try:
             # Fetch the first page to get total page count
-            print(f"Fetching {catalog_name}...")
+            self.logger.info(f"Fetching {catalog_name}...")
             response = requests.get(url)
             response.raise_for_status()
 
             # Get total number of pages
-            total_pages = self._get_total_pages(response.text)
-            print(f"Found {total_pages} pages to scrape")
+            total_pages = self.pagination.get_total_pages(response.text)
+            self.logger.info(f"Found {total_pages} pages to scrape")
 
             # Scrape each page
             for page_num in range(1, total_pages + 1):
-                print(f"Scraping page {page_num} of {total_pages}...")
+                self.logger.info(f"Scraping page {page_num} of {total_pages}...")
 
                 # Build URL for current page
                 if page_num == 1:
                     page_url = url
                     page_content = response.text
                 else:
-                    page_url = f"{url}?page={page_num}"
+                    page_url = self.pagination.build_page_url(url, page_num)
                     page_response = requests.get(page_url)
                     page_response.raise_for_status()
                     page_content = page_response.text
@@ -174,24 +143,21 @@ class Catalog:
                 # Extract products from current page
                 products = self._extract_products_from_html(page_content)
                 all_products.extend(products)
-                print(f"Found {len(products)} products on page {page_num}")
+                self.logger.info(f"Found {len(products)} products on page {page_num}")
 
                 # Check if we've reached the limit
                 if max_items and len(all_products) >= max_items:
                     all_products = all_products[:max_items]
-                    print(f"Reached limit of {max_items} items, stopping early")
+                    self.logger.info(f"Reached limit of {max_items} items, stopping early")
                     break
 
-            print(f"Scraping completed! Total products found: {len(all_products)}")
+            self.logger.info(f"Scraping completed! Total products found: {len(all_products)}")
 
         except Exception as e:
-            print(f"Error during scraping: {e}")
+            self.logger.error(f"Error during scraping: {e}")
 
         return all_products
 
-    def get_categories(self) -> list[str]:
-        """Get available categories."""
-        return [x.value for x in Category]
 
     def get_items(self, category_name: str, max_items: int | None = None) -> list[Product]:
         """Get items from specified category."""

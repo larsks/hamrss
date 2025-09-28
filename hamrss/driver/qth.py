@@ -5,15 +5,16 @@ from bs4 import BeautifulSoup
 import re
 from urllib.parse import urljoin, urlparse, parse_qs
 
+from .base import BaseCatalog
 from ..model import Product
 
 
-class Catalog:
+class Catalog(BaseCatalog):
     """Swap QTH catalog scraper for ham radio equipment classified ads."""
 
     def __init__(self, playwright_server=None, max_products=100):
         """Initialize the catalog with optional product limit."""
-        # Ignore the playwright_server parameter as we use requests instead
+        super().__init__(playwright_server)
         self.max_products = max_products
         self._categories_cache = None
         self.base_url = "https://swap.qth.com"
@@ -46,7 +47,7 @@ class Catalog:
             return categories
 
         except Exception as e:
-            print(f"Error discovering categories: {e}")
+            self.logger.error(f"Error discovering categories: {e}")
             return {}
 
     def get_categories(self) -> list[str]:
@@ -88,24 +89,11 @@ class Catalog:
                 product_data["title"] = title
 
                 # Try to extract manufacturer and model from title
-                title_parts = title.split()
-                if len(title_parts) >= 2:
-                    # Skip generic prefixes
-                    start_idx = 0
-                    if title_parts[0].upper() in ["FOR", "FS:", "SALE", "NEW", "USED"]:
-                        start_idx = 1
-
-                    if start_idx < len(title_parts):
-                        # First meaningful word is often the manufacturer
-                        potential_manufacturer = title_parts[start_idx]
-                        if potential_manufacturer[
-                            0
-                        ].isupper() and not potential_manufacturer.startswith("-"):
-                            product_data["manufacturer"] = potential_manufacturer
-                            # Next 1-2 words could be the model
-                            if start_idx + 1 < len(title_parts):
-                                model_parts = title_parts[start_idx + 1 : start_idx + 3]
-                                product_data["model"] = " ".join(model_parts)
+                manufacturer, model = self._extract_manufacturer_model_from_title(title)
+                if manufacturer:
+                    product_data["manufacturer"] = manufacturer
+                if model:
+                    product_data["model"] = model
 
                 # Find the containing structure to get associated links and content
                 container = bold_element.find_parent(["dt", "dd", "DT", "DD"])
@@ -210,7 +198,7 @@ class Catalog:
                     products.append(product)
 
             except Exception as e:
-                print(f"Error extracting product '{title}': {e}")
+                self.logger.error(f"Error extracting product '{title}': {e}")
                 continue
 
         return products
@@ -249,7 +237,7 @@ class Catalog:
                 return best_next_url
 
         except Exception as e:
-            print(f"Error finding next page: {e}")
+            self.logger.error(f"Error finding next page: {e}")
 
         return None
 
@@ -280,19 +268,19 @@ class Catalog:
         try:
             while current_url:
                 page_count += 1
-                print(f"Scraping {category_name} page {page_count}...")
+                self.logger.info(f"Scraping {category_name} page {page_count}...")
 
                 response = requests.get(current_url)
                 response.raise_for_status()
 
                 # Extract products from current page
                 products = self._extract_products_from_html(response.text)
-                print(f"Found {len(products)} products on page {page_count}")
+                self.logger.info(f"Found {len(products)} products on page {page_count}")
 
                 # Add products, respecting the limit
                 for product in products:
                     if limit and len(all_products) >= limit:
-                        print(f"Reached product limit of {limit}")
+                        self.logger.info(f"Reached product limit of {limit}")
                         return all_products
                     all_products.append(product)
 
@@ -309,13 +297,13 @@ class Catalog:
 
                 # Safety check to prevent infinite loops
                 if page_count > 100:
-                    print("Warning: Stopped after 100 pages to prevent infinite loop")
+                    self.logger.warning("Stopped after 100 pages to prevent infinite loop")
                     break
 
         except Exception as e:
-            print(f"Error scraping category {category_name}: {e}")
+            self.logger.error(f"Error scraping category {category_name}: {e}")
 
-        print(
+        self.logger.info(
             f"Scraping {category_name} completed! Total products found: {len(all_products)}"
         )
         return all_products

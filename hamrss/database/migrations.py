@@ -1,11 +1,10 @@
 """Database migration system for automated schema updates."""
 
 import logging
-from typing import List, Callable, Protocol
+from typing import List, Callable
 from datetime import datetime, timezone
 
 from sqlalchemy import text, Engine, MetaData, Table, Column, Integer, String, DateTime
-from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.sql import func
 
 logger = logging.getLogger(__name__)
@@ -80,7 +79,7 @@ class MigrationManager:
         # Use SQLAlchemy's MetaData to create the table
         metadata = MetaData()
 
-        migration_table = Table(
+        Table(
             "schema_migrations",
             metadata,
             Column("version", Integer, primary_key=True),

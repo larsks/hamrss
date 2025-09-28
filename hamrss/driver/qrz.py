@@ -3,13 +3,14 @@
 import requests
 import feedparser
 from enum import Enum
-from pydantic import Field
-from pydantic_settings import BaseSettings, SettingsConfigDict
+from pydantic_settings import SettingsConfigDict
 
+from .base import BaseCatalog, EnumCatalogMixin
+from .config import AuthenticatedDriverSettings
 from ..model import Product
 
 
-class QRZSettings(BaseSettings):
+class QRZSettings(AuthenticatedDriverSettings):
     """QRZ driver configuration loaded from environment variables."""
 
     model_config = SettingsConfigDict(
@@ -18,9 +19,6 @@ class QRZSettings(BaseSettings):
         case_sensitive=False,
     )
 
-    username: str = Field(default="", description="QRZ username for authentication")
-    password: str = Field(default="", description="QRZ password for authentication")
-
 
 class Category(str, Enum):
     """Available product categories."""
@@ -28,11 +26,13 @@ class Category(str, Enum):
     ham_radio_gear_for_sale = "ham-radio-gear-for-sale"
 
 
-class Catalog:
+class Catalog(EnumCatalogMixin, BaseCatalog):
     """QRZ RSS feed scraper for ham radio gear for sale."""
 
+    Category = Category
+
     def __init__(self, playwright_server=None):
-        # Ignore the playwright_server parameter as we use requests instead
+        super().__init__(playwright_server)
         self.settings = QRZSettings()
         self.session = requests.Session()
         self._authenticated = False
@@ -44,7 +44,7 @@ class Catalog:
 
         # Check if credentials are provided
         if not self.settings.username or not self.settings.password:
-            print("QRZ credentials not provided - authentication skipped")
+            self.logger.info("QRZ credentials not provided - authentication skipped")
             return False
 
         try:
@@ -60,7 +60,7 @@ class Catalog:
             # Find the login form
             login_form = soup.find("form")
             if not login_form:
-                print("Could not find login form")
+                self.logger.error("Could not find login form")
                 return False
 
             # Get the correct form action
@@ -115,16 +115,16 @@ class Catalog:
             )
 
             if login_failed:
-                print("Authentication with QRZ failed")
+                self.logger.error("Authentication with QRZ failed")
                 return False
             else:
                 # No error messages found, assume success
                 self._authenticated = True
-                print("Successfully authenticated with QRZ")
+                self.logger.info("Successfully authenticated with QRZ")
                 return True
 
         except Exception as e:
-            print(f"Error during QRZ authentication: {e}")
+            self.logger.error(f"Error during QRZ authentication: {e}")
             return False
 
     def _fetch_rss_feed(self, url: str):
@@ -134,7 +134,7 @@ class Catalog:
         try:
             self._authenticate()
         except Exception as e:
-            print(f"Authentication failed, but continuing anyway: {e}")
+            self.logger.warning(f"Authentication failed, but continuing anyway: {e}")
 
         try:
             # Fetch the RSS feed
@@ -145,12 +145,12 @@ class Catalog:
             feed = feedparser.parse(response.content)
 
             if hasattr(feed, "bozo") and feed.bozo:
-                print(f"Warning: RSS feed parsing had issues: {feed.bozo_exception}")
+                self.logger.warning(f"RSS feed parsing had issues: {feed.bozo_exception}")
 
             return feed
 
         except Exception as e:
-            print(f"Error fetching RSS feed: {e}")
+            self.logger.error(f"Error fetching RSS feed: {e}")
             raise
 
     def _extract_products_from_feed(self, feed) -> list[Product]:
@@ -186,19 +186,21 @@ class Catalog:
                     if " - " in title:
                         parts = title.split(" - ", 1)
                         brand_model = parts[0].strip()
-                        brand_parts = brand_model.split()
-                        if len(brand_parts) >= 2:
-                            product_data["manufacturer"] = brand_parts[0]
-                            product_data["model"] = " ".join(brand_parts[1:])
+                        manufacturer, model = self._extract_manufacturer_model_from_title(brand_model)
+                        if manufacturer:
+                            product_data["manufacturer"] = manufacturer
+                        if model:
+                            product_data["model"] = model
                         # Use the part after " - " as additional description if we don't have one
                         if len(parts) > 1 and not product_data.get("description"):
                             product_data["description"] = parts[1].strip()
                     else:
                         # Try to parse simple "Brand Model" format without dash
-                        title_parts = title.split()
-                        if len(title_parts) >= 2:
-                            product_data["manufacturer"] = title_parts[0]
-                            product_data["model"] = " ".join(title_parts[1:])
+                        manufacturer, model = self._extract_manufacturer_model_from_title(title)
+                        if manufacturer:
+                            product_data["manufacturer"] = manufacturer
+                        if model:
+                            product_data["model"] = model
 
                 # Only create Product if we have the required fields
                 if "title" in product_data and "url" in product_data:
@@ -206,14 +208,11 @@ class Catalog:
                     products.append(product)
 
             except Exception as e:
-                print(f"Error extracting product from RSS entry: {e}")
+                self.logger.error(f"Error extracting product from RSS entry: {e}")
                 continue
 
         return products
 
-    def get_categories(self) -> list[str]:
-        """Get available categories."""
-        return [x.value for x in Category]
 
     def get_items(self, category_name: str, max_items: int | None = None) -> list[Product]:
         """Get items from specified category."""
@@ -226,7 +225,7 @@ class Catalog:
         """Fetch all ham radio gear for sale from QRZ RSS feed."""
         rss_url = "https://forums.qrz.com/index.php?forums/ham-radio-gear-for-sale.7/index.rss"
 
-        print("Fetching QRZ ham radio gear for sale RSS feed...")
+        self.logger.info("Fetching QRZ ham radio gear for sale RSS feed...")
 
         try:
             feed = self._fetch_rss_feed(rss_url)
@@ -235,11 +234,11 @@ class Catalog:
             # Apply limit if specified
             if max_items and len(products) > max_items:
                 products = products[:max_items]
-                print(f"Limited to {max_items} items")
+                self.logger.info(f"Limited to {max_items} items")
 
-            print(f"Found {len(products)} products in QRZ RSS feed")
+            self.logger.info(f"Found {len(products)} products in QRZ RSS feed")
             return products
 
         except Exception as e:
-            print(f"Error scraping QRZ RSS feed: {e}")
+            self.logger.error(f"Error scraping QRZ RSS feed: {e}")
             return []

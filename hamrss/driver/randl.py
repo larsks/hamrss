@@ -5,6 +5,7 @@ from bs4 import BeautifulSoup
 import re
 from enum import Enum
 
+from .base import BaseCatalog, EnumCatalogMixin
 from ..model import Product
 
 
@@ -14,12 +15,14 @@ class Category(str, Enum):
     used = "used"
 
 
-class Catalog:
+class Catalog(EnumCatalogMixin, BaseCatalog):
     """R&L Electronics catalog scraper for used equipment."""
 
+    Category = Category
+
     def __init__(self, playwright_server=None):
-        # Ignore the playwright_server parameter as we use requests instead
-        pass
+        super().__init__(playwright_server)
+        self.base_url = "https://www2.randl.com"
 
     def _extract_products_from_html(self, html_content: str) -> list[Product]:
         """Extract product information from the HTML content."""
@@ -55,10 +58,7 @@ class Catalog:
                 link_elem = desc_cell.find("a")
                 if link_elem:
                     href = link_elem.get("href")
-                    if href and not href.startswith("http"):
-                        product_data["url"] = f"https://www2.randl.com/{href}"
-                    else:
-                        product_data["url"] = href
+                    product_data["url"] = self._normalize_url(href, self.base_url)
 
                     # Extract product ID from URL
                     if href and "products_id=" in href:
@@ -75,10 +75,9 @@ class Catalog:
                         r"^Used\s+", "", desc_text, flags=re.IGNORECASE
                     )
                     if desc_cleaned:
-                        # Take first few words as potential model
-                        model_parts = desc_cleaned.split()[:2]
-                        if model_parts:
-                            model = " ".join(model_parts)
+                        # Extract manufacturer and model using base class method
+                        manufacturer_from_desc, model = self._extract_manufacturer_model_from_title(desc_cleaned)
+                        if model:
                             product_data["model"] = model
 
                     # Set description to full text (may include more details than just model)
@@ -107,8 +106,9 @@ class Catalog:
                 # Extract price from third cell
                 price_cell = cells[2]
                 price_text = price_cell.get_text().strip()
-                if price_text and price_text.startswith("$"):
-                    product_data["price"] = price_text
+                price = self._extract_price(price_text)
+                if price:
+                    product_data["price"] = price
 
                 if product_data.get(
                     "title"
@@ -117,14 +117,11 @@ class Catalog:
                     products.append(product)
 
             except Exception as e:
-                print(f"Error extracting product: {e}")
+                self.logger.error(f"Error extracting product: {e}")
                 continue
 
         return products
 
-    def get_categories(self) -> list[str]:
-        """Get available categories."""
-        return [x.value for x in Category]
 
     def get_items(self, category_name: str, max_items: int | None = None) -> list[Product]:
         """Get items from specified category."""
@@ -136,7 +133,7 @@ class Catalog:
     def get_used_items(self, max_items: int | None = None) -> list[Product]:
         """Fetch all used equipment from R&L Electronics."""
         try:
-            print("Fetching R&L Electronics used equipment...")
+            self.logger.info("Fetching R&L Electronics used equipment...")
             response = requests.get(
                 "https://www2.randl.com/index.php?main_page=usedbrand"
             )
@@ -148,11 +145,11 @@ class Catalog:
             # Apply limit if specified
             if max_items and len(products) > max_items:
                 products = products[:max_items]
-                print(f"Limited to {max_items} items")
+                self.logger.info(f"Limited to {max_items} items")
 
-            print(f"Scraping completed! Total products found: {len(products)}")
+            self.logger.info(f"Scraping completed! Total products found: {len(products)}")
             return products
 
         except Exception as e:
-            print(f"Error during scraping: {e}")
+            self.logger.error(f"Error during scraping: {e}")
             return []
