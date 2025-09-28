@@ -144,7 +144,8 @@ class Catalog(BaseCatalog):
 
                 # Extract description and other details from the description DD
                 if description_dd:
-                    desc_text = description_dd.get_text().strip()
+                    # Use separator to ensure spacing between HTML elements
+                    desc_text = description_dd.get_text(separator=' ').strip()
 
                     # Take full description text - QTH listings are freeform text
                     if desc_text:
