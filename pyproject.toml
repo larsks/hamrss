@@ -38,3 +38,8 @@ hro = "hamrss.driver.hro"
 randl = "hamrss.driver.randl"
 qrz = "hamrss.driver.qrz"
 qth = "hamrss.driver.qth"
+
+[tool.pytest.ini_options]
+filterwarnings = [
+    "ignore:The default datetime adapter is deprecated as of Python 3.12:DeprecationWarning:sqlalchemy.engine.default",
+]
