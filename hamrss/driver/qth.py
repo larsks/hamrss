@@ -276,11 +276,14 @@ class Catalog:
         except (ValueError, KeyError, IndexError):
             return 1
 
-    def _scrape_category(self, url: str, category_name: str) -> list[Product]:
+    def _scrape_category(self, url: str, category_name: str, max_items: int | None = None) -> list[Product]:
         """Scrape a category page with pagination support and product limits."""
         all_products = []
         current_url = url
         page_count = 0
+
+        # Use parameter limit if provided, otherwise fall back to instance limit
+        limit = max_items if max_items is not None else (self.max_products if self.max_products > 0 else None)
 
         try:
             while current_url:
@@ -296,13 +299,13 @@ class Catalog:
 
                 # Add products, respecting the limit
                 for product in products:
-                    if self.max_products > 0 and len(all_products) >= self.max_products:
-                        print(f"Reached product limit of {self.max_products}")
+                    if limit and len(all_products) >= limit:
+                        print(f"Reached product limit of {limit}")
                         return all_products
                     all_products.append(product)
 
                 # Check if we should continue to next page
-                if self.max_products > 0 and len(all_products) >= self.max_products:
+                if limit and len(all_products) >= limit:
                     break
 
                 # Find next page URL
@@ -325,7 +328,7 @@ class Catalog:
         )
         return all_products
 
-    def get_items(self, category_name: str) -> list[Product]:
+    def get_items(self, category_name: str, max_items: int | None = None) -> list[Product]:
         """Get items from specified category."""
         # Ensure categories are discovered
         if self._categories_cache is None:
@@ -338,4 +341,4 @@ class Catalog:
             )
 
         category_url = self._categories_cache[category_name]
-        return self._scrape_category(category_url, category_name)
+        return self._scrape_category(category_url, category_name, max_items)

@@ -126,14 +126,14 @@ class Catalog:
         """Get available categories."""
         return [x.value for x in Category]
 
-    def get_items(self, category_name: str) -> list[Product]:
+    def get_items(self, category_name: str, max_items: int | None = None) -> list[Product]:
         """Get items from specified category."""
         if category_name == Category.used:
-            return self.get_used_items()
+            return self.get_used_items(max_items)
         else:
             raise ValueError(f"Unknown category: {category_name}")
 
-    def get_used_items(self) -> list[Product]:
+    def get_used_items(self, max_items: int | None = None) -> list[Product]:
         """Fetch all used equipment from R&L Electronics."""
         try:
             print("Fetching R&L Electronics used equipment...")
@@ -144,6 +144,11 @@ class Catalog:
 
             # Extract products from the HTML content
             products = self._extract_products_from_html(response.text)
+
+            # Apply limit if specified
+            if max_items and len(products) > max_items:
+                products = products[:max_items]
+                print(f"Limited to {max_items} items")
 
             print(f"Scraping completed! Total products found: {len(products)}")
             return products

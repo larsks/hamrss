@@ -158,7 +158,7 @@ class Catalog:
 
         return 1
 
-    def _scrape_catalog(self, url: str, catalog_name: str) -> list[Product]:
+    def _scrape_catalog(self, url: str, catalog_name: str, max_items: int | None = None) -> list[Product]:
         """Generic method to scrape any HRO catalog with pagination."""
         all_products: list[Product] = []
 
@@ -184,6 +184,12 @@ class Catalog:
                     products = self._extract_products_from_page(page)
                     all_products.extend(products)
                     print(f"Found {len(products)} products on page {page_num + 1}")
+
+                    # Check if we've reached the limit
+                    if max_items and len(all_products) >= max_items:
+                        all_products = all_products[:max_items]
+                        print(f"Reached limit of {max_items} items, stopping early")
+                        break
 
                     # Navigate to next page if not the last page
                     if page_num < total_pages - 1:
@@ -220,33 +226,33 @@ class Catalog:
 
         return all_products
 
-    def get_used_items(self) -> list[Product]:
+    def get_used_items(self, max_items: int | None = None) -> list[Product]:
         """Fetch all used equipment from /used.cfm"""
         return self._scrape_catalog(
-            "https://www.hamradio.com/used.cfm", "Ham Radio used equipment"
+            "https://www.hamradio.com/used.cfm", "Ham Radio used equipment", max_items
         )
 
-    def get_open_items(self) -> list[Product]:
+    def get_open_items(self, max_items: int | None = None) -> list[Product]:
         """Fetch all open items from /open_item.cfm"""
         return self._scrape_catalog(
-            "https://www.hamradio.com/open_item.cfm", "Ham Radio open items"
+            "https://www.hamradio.com/open_item.cfm", "Ham Radio open items", max_items
         )
 
-    def get_consignment_items(self) -> list[Product]:
+    def get_consignment_items(self, max_items: int | None = None) -> list[Product]:
         """Fetch all consignment items from /consignment.cfm"""
         return self._scrape_catalog(
-            "https://www.hamradio.com/consignment.cfm", "Ham Radio consignment items"
+            "https://www.hamradio.com/consignment.cfm", "Ham Radio consignment items", max_items
         )
 
     def get_categories(self) -> list[str]:
         return [x.value for x in Category]
 
-    def get_items(self, category_name: str) -> list[Product]:
+    def get_items(self, category_name: str, max_items: int | None = None) -> list[Product]:
         if category_name == Category.used:
-            return self.get_used_items()
+            return self.get_used_items(max_items)
         elif category_name == Category.open:
-            return self.get_open_items()
+            return self.get_open_items(max_items)
         elif category_name == Category.consignment:
-            return self.get_consignment_items()
+            return self.get_consignment_items(max_items)
         else:
             raise ValueError(category_name)

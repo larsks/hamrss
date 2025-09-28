@@ -90,6 +90,13 @@ class ServerSettings(BaseSettings):
         le=120,
     )
 
+    max_items_per_driver: int = Field(
+        default=500,
+        description="Maximum number of items to scrape per driver per category",
+        ge=1,
+        le=10000,
+    )
+
     # Database connection pool settings
     db_pool_size: int = Field(
         default=5,

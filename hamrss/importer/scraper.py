@@ -67,7 +67,7 @@ class DriverScraper:
                         logger.info(f"Scraping {driver_name}/{category}")
 
                         # Get products from the driver
-                        products = catalog.get_items(category)
+                        products = catalog.get_items(category, self.settings.max_items_per_driver)
                         logger.info(
                             f"Found {len(products)} products in {driver_name}/{category}"
                         )

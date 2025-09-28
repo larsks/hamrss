@@ -143,7 +143,7 @@ class Catalog:
 
         return 1
 
-    def _scrape_catalog(self, url: str, catalog_name: str) -> list[Product]:
+    def _scrape_catalog(self, url: str, catalog_name: str, max_items: int | None = None) -> list[Product]:
         """Generic method to scrape MTC catalog with pagination."""
         all_products: list[Product] = []
 
@@ -176,6 +176,12 @@ class Catalog:
                 all_products.extend(products)
                 print(f"Found {len(products)} products on page {page_num}")
 
+                # Check if we've reached the limit
+                if max_items and len(all_products) >= max_items:
+                    all_products = all_products[:max_items]
+                    print(f"Reached limit of {max_items} items, stopping early")
+                    break
+
             print(f"Scraping completed! Total products found: {len(all_products)}")
 
         except Exception as e:
@@ -187,15 +193,15 @@ class Catalog:
         """Get available categories."""
         return [x.value for x in Category]
 
-    def get_items(self, category_name: str) -> list[Product]:
+    def get_items(self, category_name: str, max_items: int | None = None) -> list[Product]:
         """Get items from specified category."""
         if category_name == Category.used:
-            return self.get_used_items()
+            return self.get_used_items(max_items)
         else:
             raise ValueError(f"Unknown category: {category_name}")
 
-    def get_used_items(self) -> list[Product]:
+    def get_used_items(self, max_items: int | None = None) -> list[Product]:
         """Fetch all used equipment from MTC Radio."""
         return self._scrape_catalog(
-            "https://www.mtcradio.com/used-gear/", "MTC Radio used equipment"
+            "https://www.mtcradio.com/used-gear/", "MTC Radio used equipment", max_items
         )
