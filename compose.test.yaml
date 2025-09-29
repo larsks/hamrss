@@ -1,0 +1,10 @@
+# Apply some settings that are useful for testing
+
+services:
+  postgres:
+    ports:
+      - "5432:5432"
+
+  importer:
+    environment:
+      HAMRSS_IMPORTER_MAX_ITEMS_PER_DRIVER: "10"
