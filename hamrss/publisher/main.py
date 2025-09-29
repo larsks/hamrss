@@ -6,7 +6,7 @@ from contextlib import asynccontextmanager, contextmanager
 from typing import AsyncGenerator, Generator
 
 import uvicorn
-from fastapi import FastAPI, HTTPException, Depends
+from fastapi import FastAPI, HTTPException, Depends, Request
 from fastapi.responses import Response
 from sqlalchemy import create_engine, Engine
 from sqlalchemy.orm import sessionmaker, Session
@@ -119,6 +119,7 @@ async def root():
             "/feed/{driver}": "Driver-specific RSS feed",
             "/feed/{driver}/{category}": "Category-specific RSS feed",
             "/stats": "Feed statistics",
+            "/opml": "OPML format listing of per-driver feeds",
         },
         "stats": stats,
         "available_feeds": {
@@ -213,6 +214,80 @@ async def get_category_feed(
             media_type="application/rss+xml",
             headers={"Content-Type": "application/rss+xml; charset=utf-8"},
         )
+
+
+@app.get("/opml")
+async def get_opml(
+    request: Request, settings: PublisherSettings = Depends(get_current_settings)
+):
+    """Get OPML format listing of per-driver feeds."""
+    with get_db_session() as session:
+        queries = FeedQueries(session)
+        stats = queries.get_feed_stats()
+
+        drivers = stats["drivers"]
+
+        # Use Host header to build base URL
+        host = request.headers.get("host", "localhost:8080")
+        scheme = (
+            "https" if request.headers.get("x-forwarded-proto") == "https" else "http"
+        )
+        base_url = f"{scheme}://{host}"
+
+        # Generate OPML content (even if empty)
+        opml_content = _generate_opml(drivers, base_url)
+
+        return Response(
+            content=opml_content,
+            media_type="application/xml",
+            headers={"Content-Type": "application/xml; charset=utf-8"},
+        )
+
+
+def _generate_opml(drivers: dict[str, int], base_url: str) -> str:
+    """Generate OPML format content for per-driver feeds."""
+    from xml.sax.saxutils import escape
+    from datetime import datetime
+
+    now = datetime.now().strftime("%a, %d %b %Y %H:%M:%S GMT")
+
+    opml_lines = [
+        '<?xml version="1.0" encoding="UTF-8"?>',
+        '<opml version="1.0">',
+        "  <head>",
+        "    <title>Ham RSS Feeds</title>",
+        f"    <dateCreated>{now}</dateCreated>",
+        f"    <dateModified>{now}</dateModified>",
+        "    <ownerName>Ham RSS Publisher</ownerName>",
+        "  </head>",
+        "  <body>",
+        '    <outline text="Ham RSS Feeds" title="Ham RSS Feeds">',
+    ]
+
+    # Add feed for all items
+    opml_lines.append(
+        f'      <outline type="rss" text="All Items" title="All Items" '
+        f'xmlUrl="{escape(base_url)}/feed" htmlUrl="{escape(base_url)}" />'
+    )
+
+    # Add per-driver feeds
+    for driver in sorted(drivers.keys()):
+        count = drivers[driver]
+        title = f"{driver} ({count} items)"
+        opml_lines.append(
+            f'      <outline type="rss" text="{escape(title)}" title="{escape(title)}" '
+            f'xmlUrl="{escape(base_url)}/feed/{escape(driver)}" htmlUrl="{escape(base_url)}" />'
+        )
+
+    opml_lines.extend(
+        [
+            "    </outline>",
+            "  </body>",
+            "</opml>",
+        ]
+    )
+
+    return "\n".join(opml_lines)
 
 
 def run_server() -> None:
