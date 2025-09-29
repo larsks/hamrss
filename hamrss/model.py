@@ -12,3 +12,4 @@ class Product(BaseModel):
     date_added: str | None = None
     price: str | None = None
     image_url: str | None = None
+    author: str | None = None

@@ -2,6 +2,7 @@
 
 import requests
 import feedparser
+import re
 from enum import Enum
 from pydantic_settings import SettingsConfigDict
 
@@ -178,6 +179,15 @@ class Catalog(EnumCatalogMixin, BaseCatalog):
                 # Extract additional information if available
                 if hasattr(entry, "published") and entry.published:
                     product_data["date_added"] = entry.published
+
+                # Extract author (callsign) from RSS author field
+                # Note: dc:creator contains the same info but feedparser doesn't parse XML namespaces properly
+                if hasattr(entry, "author") and entry.author:
+                    # QRZ RSS feeds provide the callsign in both author and dc:creator fields
+                    author = entry.author.strip()
+                    # Validate it looks like a callsign (alphanumeric, typically 3-6 chars)
+                    if re.match(r'^[A-Z0-9]{2,6}$', author):
+                        product_data["author"] = author
 
                 # Try to extract manufacturer and model from title if possible
                 if "title" in product_data:

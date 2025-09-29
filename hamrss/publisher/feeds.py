@@ -1,6 +1,7 @@
 """RSS feed generation using feedgen."""
 
 import logging
+import re
 from datetime import datetime, timezone
 from urllib.parse import urljoin
 
@@ -55,7 +56,9 @@ class RSSFeedGenerator:
         for product in products:
             self._add_product_to_feed(fg, product)
 
-        return fg.rss_str(pretty=True).decode("utf-8")
+        # Generate RSS and post-process to add Dublin Core creator elements
+        rss_xml = fg.rss_str(pretty=True).decode("utf-8")
+        return self._add_dublin_core_creators(rss_xml, products)
 
     def _add_product_to_feed(self, fg: FeedGenerator, product: Product) -> None:
         """Add a single product as an RSS item."""
@@ -112,6 +115,10 @@ class RSSFeedGenerator:
                 pub_date = pub_date.replace(tzinfo=timezone.utc)
             fe.pubDate(pub_date)
 
+        # Author information (callsign)
+        if product.author:
+            fe.author(name=product.author)
+
         # Categories
         categories = []
         if driver_short:
@@ -148,6 +155,7 @@ class RSSFeedGenerator:
         add_line("Price", product.price)
         add_line("Location", product.location)
         add_line("Date Added", product.date_added)
+        add_line("Author", product.author)
         add_line(
             "Driver",
             product.driver_name.split(".")[-1]
@@ -169,6 +177,51 @@ class RSSFeedGenerator:
             content_parts.append("<pre>" + "\n".join(metadata_lines) + "</pre>")
 
         return "\n".join(content_parts)
+
+    def _add_dublin_core_creators(self, rss_xml: str, products: list[Product]) -> str:
+        """Post-process RSS XML to add Dublin Core creator elements for callsigns."""
+        # First, add the Dublin Core namespace if not already present
+        if 'xmlns:dc="http://purl.org/dc/elements/1.1/"' not in rss_xml:
+            rss_xml = rss_xml.replace(
+                '<rss xmlns:atom="http://www.w3.org/2005/Atom" xmlns:content="http://purl.org/rss/1.0/modules/content/" version="2.0">',
+                '<rss xmlns:atom="http://www.w3.org/2005/Atom" xmlns:content="http://purl.org/rss/1.0/modules/content/" xmlns:dc="http://purl.org/dc/elements/1.1/" version="2.0">',
+            )
+
+        # Create a mapping of product URLs to authors for items that have authors
+        url_to_author = {}
+        for product in products:
+            if product.author and product.url:
+                url_to_author[product.url] = product.author
+
+        # Add dc:creator elements to items that have authors
+        if url_to_author:
+            # Use regex to find and modify <item> elements
+            def add_creator_to_item(match):
+                item_content = match.group(1)
+
+                # Find the link URL in this item
+                link_match = re.search(r"<link>([^<]+)</link>", item_content)
+                if link_match:
+                    item_url = link_match.group(1)
+                    if item_url in url_to_author:
+                        author = url_to_author[item_url]
+                        # Add dc:creator before the closing </item>
+                        creator_element = (
+                            f"      <dc:creator>{author}</dc:creator>\n    "
+                        )
+                        item_content = item_content.rstrip() + "\n" + creator_element
+
+                return f"<item>\n{item_content}</item>"
+
+            # Apply the transformation to all <item> elements
+            rss_xml = re.sub(
+                r"<item>\s*(.*?)\s*</item>",
+                add_creator_to_item,
+                rss_xml,
+                flags=re.DOTALL,
+            )
+
+        return rss_xml
 
     def create_all_items_feed(self, products: list[Product]) -> str:
         """Create feed for all items."""

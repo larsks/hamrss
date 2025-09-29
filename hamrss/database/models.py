@@ -36,6 +36,7 @@ class Product(Base):
     )  # Store as string since format varies
     price = Column(String(50), nullable=True)
     image_url = Column(String(500), nullable=True)
+    author = Column(String(100), nullable=True)
 
     # Scraping metadata
     driver_name = Column(String(100), nullable=False)

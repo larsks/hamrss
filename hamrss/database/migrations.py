@@ -161,6 +161,79 @@ class MigrationManager:
         raise NotImplementedError("Rollback functionality not implemented for safety")
 
 
+def _add_author_column_migration(engine: Engine) -> None:
+    """Migration function to add author column to products table."""
+    logger.info("Adding author column to products table")
+
+    # First, check if products table exists (separate transaction)
+    table_exists = False
+    try:
+        with engine.begin() as conn:
+            if str(engine.url).startswith("sqlite"):
+                table_check = conn.execute(
+                    text(
+                        "SELECT name FROM sqlite_master WHERE type='table' AND name='products'"
+                    )
+                ).fetchone()
+            else:
+                table_check = conn.execute(
+                    text(
+                        "SELECT table_name FROM information_schema.tables WHERE table_name='products'"
+                    )
+                ).fetchone()
+
+            table_exists = table_check is not None
+
+    except Exception as e:
+        logger.info(
+            f"Could not check for products table existence: {e}, skipping migration"
+        )
+        return
+
+    if not table_exists:
+        logger.info("Products table doesn't exist yet, skipping migration")
+        return
+
+    # Check if author column already exists (separate transaction)
+    column_exists = False
+    try:
+        with engine.begin() as conn:
+            if str(engine.url).startswith("sqlite"):
+                # For SQLite, try selecting the column
+                conn.execute(text("SELECT author FROM products LIMIT 1"))
+                column_exists = True
+            else:
+                # For PostgreSQL, use information_schema
+                result = conn.execute(
+                    text("""
+                    SELECT column_name FROM information_schema.columns
+                    WHERE table_name = 'products' AND column_name = 'author'
+                """)
+                ).fetchone()
+                column_exists = result is not None
+
+    except Exception:
+        # Column doesn't exist, proceed with migration
+        column_exists = False
+
+    if column_exists:
+        logger.info("Author column already exists, skipping")
+        return
+
+    # Apply the migration: Add the column
+    try:
+        with engine.begin() as conn:
+            # Add the author column (nullable for existing data)
+            if str(engine.url).startswith("sqlite"):
+                conn.execute(text("ALTER TABLE products ADD COLUMN author TEXT"))
+            else:
+                conn.execute(text("ALTER TABLE products ADD COLUMN author VARCHAR(100)"))
+            logger.info("Author column added successfully")
+    except Exception as e:
+        logger.error(f"Failed to add author column: {e}")
+        raise
+
+
 def _add_title_column_migration(engine: Engine) -> None:
     """Migration function to add title column to products table."""
     logger.info("Adding title column to products table")
@@ -305,6 +378,12 @@ def get_all_migrations() -> List[Migration]:
             version=1,
             description="Add title column to products table and make description optional",
             up_sql=_add_title_column_migration,
+            down_sql=None,  # Rollback not supported for data safety
+        ),
+        Migration(
+            version=2,
+            description="Add author column to products table",
+            up_sql=_add_author_column_migration,
             down_sql=None,  # Rollback not supported for data safety
         ),
         # Future migrations can be added here

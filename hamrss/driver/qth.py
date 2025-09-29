@@ -168,26 +168,37 @@ class Catalog(BaseCatalog):
                         else:
                             product_data["description"] = desc_clean[:800] + "..."
 
-                # Look for metadata in subsequent DD elements
-                metadata_dd = None
-                if description_dd:
-                    metadata_dd = description_dd.find_next_sibling(["dd", "DD"])
+                # Look for metadata in DD elements that contain listing information
+                # The metadata appears in a DD element with italic text like:
+                # <DD><i><font size=2 face=arial>Listing #1744126 - Submitted on 09/24/25 by Callsign <a href="...">W6TTM</a>, Modified on 09/28/25 - IP: ...</i></font>
 
-                if metadata_dd:
-                    metadata_text = metadata_dd.get_text()
+                # Search through all DD elements after the title for metadata
+                current = bold_element
+                for _ in range(10):  # Search through multiple DD elements
+                    current = current.find_next_sibling(["dd", "DD"])
+                    if current:
+                        dd_text = current.get_text(separator=' ', strip=True)
 
-                    # Look for submission date
-                    date_pattern = r"Submitted on (\d{2}/\d{2}/\d{2})"
-                    date_match = re.search(date_pattern, metadata_text)
-                    if date_match:
-                        product_data["date_added"] = date_match.group(1)
+                        # Check if this DD contains listing metadata
+                        if "Listing #" in dd_text and "Submitted on" in dd_text:
+                            # Look for submission date
+                            date_pattern = r"Submitted on (\d{2}/\d{2}/\d{2})"
+                            date_match = re.search(date_pattern, dd_text)
+                            if date_match:
+                                product_data["date_added"] = date_match.group(1)
 
-                    # Look for callsign
-                    callsign_pattern = r"by Callsign ([A-Z0-9]+)"
-                    callsign_match = re.search(callsign_pattern, metadata_text)
-                    if callsign_match:
-                        callsign = callsign_match.group(1)
-                        product_data["location"] = f"Seller: {callsign}"
+                            # Look for callsign - handle both plain text and link formats
+                            # Pattern handles: "by Callsign W6TTM" or "by Callsign <a href="...">W6TTM</a>"
+                            callsign_pattern = r"by Callsign[^\w]*([A-Z0-9]+)"
+                            callsign_match = re.search(callsign_pattern, dd_text)
+                            if callsign_match:
+                                callsign = callsign_match.group(1)
+                                product_data["author"] = callsign
+
+                            # Found metadata, break out of loop
+                            break
+                    else:
+                        break
 
                 # Set default URL if none found
                 if "url" not in product_data:

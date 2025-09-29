@@ -177,6 +177,7 @@ class StorageManager:
                 "date_added": product.date_added,
                 "price": product.price,
                 "image_url": product.image_url,
+                "author": product.author,
                 "driver_name": driver_name,
                 "category": category,
                 "scraped_at": current_time,
@@ -200,6 +201,7 @@ class StorageManager:
                     "date_added": stmt.excluded.date_added,
                     "price": stmt.excluded.price,
                     "image_url": stmt.excluded.image_url,
+                    "author": stmt.excluded.author,
                     "category": stmt.excluded.category,
                     "scraped_at": stmt.excluded.scraped_at,
                     "scrape_run_id": stmt.excluded.scrape_run_id,
@@ -286,9 +288,7 @@ class StorageManager:
     def get_product_counts_by_driver(self) -> dict[str, int]:
         """Get active product counts by driver."""
         result = self.session.execute(
-            select(Product.driver_name, Product.category).where(
-                Product.is_active
-            )
+            select(Product.driver_name, Product.category).where(Product.is_active)
         )
 
         counts = {}
