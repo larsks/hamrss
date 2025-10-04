@@ -22,3 +22,6 @@ images:
   - name: hamrss
     newName: ghcr.io/larsks/hamrss
     newTag: main
+  - name: postgres
+    newName: docker.io/postgres
+    newTag: "18"
