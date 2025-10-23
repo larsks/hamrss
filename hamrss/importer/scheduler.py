@@ -3,6 +3,7 @@
 import logging
 import signal
 import threading
+from concurrent.futures import ThreadPoolExecutor, TimeoutError as FuturesTimeoutError
 from datetime import datetime, timezone
 from typing import Optional
 
@@ -89,23 +90,42 @@ class ScraperScheduler:
                 logger.info("Scheduler stopped")
 
     def _run_scrape_job(self) -> None:
-        """Execute a scraping job."""
+        """Execute a scraping job with timeout."""
         job_start = datetime.now(timezone.utc)
-        logger.info(f"Starting scheduled scrape job at {job_start}")
+        timeout_seconds = self.settings.scrape_timeout_minutes * 60
+        logger.info(
+            f"Starting scheduled scrape job at {job_start} "
+            f"(timeout: {self.settings.scrape_timeout_minutes} minutes)"
+        )
 
         try:
             if not self.orchestrator:
                 logger.error("Orchestrator not initialized")
                 return
 
-            success = self.orchestrator.run_scrape_cycle()
+            # Run the scrape job with a timeout using ThreadPoolExecutor
+            with ThreadPoolExecutor(max_workers=1) as executor:
+                future = executor.submit(self.orchestrator.run_scrape_cycle)
 
-            duration = datetime.now(timezone.utc) - job_start
-            status = "successful" if success else "failed"
+                try:
+                    success = future.result(timeout=timeout_seconds)
 
-            logger.info(
-                f"Scrape job completed: {status}, duration: {duration.total_seconds():.1f}s"
-            )
+                    duration = datetime.now(timezone.utc) - job_start
+                    status = "successful" if success else "failed"
+
+                    logger.info(
+                        f"Scrape job completed: {status}, duration: {duration.total_seconds():.1f}s"
+                    )
+
+                except FuturesTimeoutError:
+                    duration = datetime.now(timezone.utc) - job_start
+                    logger.error(
+                        f"Scrape job timed out after {duration.total_seconds():.1f}s "
+                        f"(timeout limit: {timeout_seconds}s). "
+                        f"The job will be cancelled to allow the next scheduled run."
+                    )
+                    # Cancel the future to attempt to stop the running task
+                    future.cancel()
 
         except Exception as e:
             duration = datetime.now(timezone.utc) - job_start

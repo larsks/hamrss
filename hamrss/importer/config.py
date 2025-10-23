@@ -86,7 +86,7 @@ class ServerSettings(BaseSettings):
     scrape_timeout_minutes: int = Field(
         default=30,
         description="Timeout for individual driver scraping in minutes",
-        ge=5,
+        ge=1,
         le=120,
     )
 
